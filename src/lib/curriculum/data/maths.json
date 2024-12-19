@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2024-03-20",
+  "subject": "maths",
+  "topics": {
+    "arithmetic": {
+      "yearGroups": {
+        "1": {
+          "terms": {
+            "1": {
+              "objectives": [
+                "Count to and across 100, forwards and backwards",
+                "Read and write numbers from 1 to 20 in numerals and words",
+                "Identify one more and one less than a given number"
+              ],
+              "keywords": [
+                "number", "count", "more", "less", "equal", "addition", "subtraction"
+              ],
+              "expectedOutcomes": [
+                "Can count confidently to 100",
+                "Can write numbers 1-20 correctly",
+                "Can identify numbers before and after"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "geometry": {
+      "yearGroups": {
+        "1": {
+          "terms": {
+            "1": {
+              "objectives": [
+                "Recognize and name common 2D shapes",
+                "Recognize and name common 3D shapes",
+                "Describe position, direction and movement"
+              ],
+              "keywords": [
+                "shape", "circle", "square", "triangle", "rectangle", "cube", "sphere"
+              ],
+              "expectedOutcomes": [
+                "Can identify basic 2D shapes",
+                "Can identify basic 3D shapes",
+                "Can use positional language correctly"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+} 

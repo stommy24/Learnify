@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2024-03-20",
+  "subject": "english",
+  "topics": {
+    "reading": {
+      "yearGroups": {
+        "1": {
+          "terms": {
+            "1": {
+              "objectives": [
+                "Apply phonic knowledge to decode words",
+                "Read common exception words",
+                "Read aloud accurately books that are consistent with phonic knowledge"
+              ],
+              "keywords": [
+                "phonics", "blend", "segment", "decode", "sight words", "fluency"
+              ],
+              "expectedOutcomes": [
+                "Can decode simple words using phonics",
+                "Can recognize common sight words",
+                "Can read simple texts aloud"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "writing": {
+      "yearGroups": {
+        "1": {
+          "terms": {
+            "1": {
+              "objectives": [
+                "Sit correctly at a table, holding a pencil comfortably",
+                "Begin to form lower-case letters correctly",
+                "Write sentences by saying out loud what they are going to write about"
+              ],
+              "keywords": [
+                "letter", "word", "sentence", "capital letter", "full stop"
+              ],
+              "expectedOutcomes": [
+                "Can form most letters correctly",
+                "Can write simple sentences independently",
+                "Uses basic punctuation"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+} 
