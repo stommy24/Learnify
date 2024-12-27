@@ -4,7 +4,13 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcrypt';
 import { UserRole } from '@/types/prisma';
-import { Prisma, User } from '@prisma/client';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  password: string | null;
+}
 
 type UserWithRole = User & { role: UserRole };
 
@@ -57,10 +63,10 @@ describe('Authentication', () => {
         password: hashedPassword,
         name: 'Test User',
         role: 'student',
-      };
+      } as const;
       
       const user = await prisma.user.create({
-        data: userData as unknown as Prisma.UserCreateInput
+        data: userData
       }) as UserWithRole;
 
       // Attempt to authenticate

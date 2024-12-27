@@ -1,282 +1,259 @@
-import { 
-  Question,
-  ValidationResult,
-  Subject,
-  MathsTopic,
-  EnglishTopic,
-  QuizConfig,
-  GeneratedQuiz
-} from '../types';
-import { QuizGenerator } from '../ai/QuizGenerator';
-import { AnswerValidator } from '../ai/AnswerValidator';
-
-export interface AssessmentConfig extends QuizConfig {
-  timeLimit?: number;
-}
-
-export interface Assessment {
-  id: string;
-  config: AssessmentConfig;
-  questions: Question[];
-  startedAt: Date;
-  completedAt?: Date;
-  answers: Map<string, string>;
-  score?: number;
-  status: 'in-progress' | 'completed' | 'expired';
-}
-
-export interface AssessmentResult {
-  id: string;
-  score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  timeSpent: number;
-  feedback: string[];
-  topicPerformance: {
-    topic: MathsTopic | EnglishTopic;
-    score: number;
-    questionsCount: number;
-  }[];
-}
+import { AssessmentResult, TopicPerformance, AssessmentConfig } from '@/lib/types/assessment';
+import { Question } from '@/lib/types/quiz';
+import { AssessmentException, AssessmentError } from './types';
+import { validateQuestions } from '@/components/assessment/validation';
 
 export class AssessmentManager {
-  private static instance: AssessmentManager;
-  private assessments: Map<string, Assessment>;
-  private quizGenerator: QuizGenerator;
-  private answerValidator: AnswerValidator;
+  private difficultyLevels = [1, 2, 3, 4, 5];
+  private performanceThreshold = 0.7;
+  private consecutiveCorrect = 0;
+  private consecutiveIncorrect = 0;
 
-  private constructor() {
-    this.assessments = new Map();
-    this.quizGenerator = QuizGenerator.getInstance();
-    this.answerValidator = AnswerValidator.getInstance();
-  }
-
-  static getInstance(): AssessmentManager {
-    if (!AssessmentManager.instance) {
-      AssessmentManager.instance = new AssessmentManager();
-    }
-    return AssessmentManager.instance;
-  }
-
-  async createAssessment(config: AssessmentConfig): Promise<ValidationResult & { assessmentId?: string }> {
+  createAssessmentResult(question: Question, answer: string): AssessmentResult {
     try {
-      const quizResult = await this.quizGenerator.generateQuiz(config);
+      this.validateQuestion(question);
+      this.validateAnswer(answer, question);
 
-      if (!quizResult.isValid || !quizResult.quiz) {
-        return {
-          isValid: false,
-          errors: quizResult.errors,
-          warnings: quizResult.warnings
-        };
-      }
-
-      const assessment: Assessment = {
-        id: `assessment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        config,
-        questions: quizResult.quiz.questions,
-        startedAt: new Date(),
-        answers: new Map(),
-        status: 'in-progress'
-      };
-
-      this.assessments.set(assessment.id, assessment);
-
-      // Start timer if timeLimit is set
-      if (config.timeLimit) {
-        setTimeout(() => {
-          this.expireAssessment(assessment.id);
-        }, config.timeLimit * 1000);
-      }
-
+      const isCorrect = this.evaluateAnswer(question, answer);
+      const score = this.calculateScore(isCorrect, question.difficulty);
+      
       return {
-        isValid: true,
-        errors: [],
-        warnings: quizResult.warnings,
-        assessmentId: assessment.id
-      };
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        isValid: false,
-        errors: [`Failed to create assessment: ${errorMessage}`],
-        warnings: []
-      };
-    }
-  }
-
-  private expireAssessment(assessmentId: string): void {
-    const assessment = this.assessments.get(assessmentId);
-    if (assessment && assessment.status === 'in-progress') {
-      assessment.status = 'expired';
-      assessment.completedAt = new Date();
-    }
-  }
-
-  async submitAnswer(
-    assessmentId: string,
-    questionId: string,
-    answer: string
-  ): Promise<ValidationResult> {
-    try {
-      const assessment = this.assessments.get(assessmentId);
-      if (!assessment) {
-        return {
-          isValid: false,
-          errors: ['Assessment not found'],
-          warnings: []
-        };
-      }
-
-      if (assessment.status !== 'in-progress') {
-        return {
-          isValid: false,
-          errors: [`Assessment is ${assessment.status}`],
-          warnings: []
-        };
-      }
-
-      const question = assessment.questions.find(q => q.id === questionId);
-      if (!question) {
-        return {
-          isValid: false,
-          errors: ['Question not found'],
-          warnings: []
-        };
-      }
-
-      const validation = await this.answerValidator.validateAnswer(
-        question.question,
+        id: crypto.randomUUID(),
+        questionId: question.id,
+        question,
         answer,
-        question.correctAnswer,
-        assessment.config.subject,
-        question.topic
-      );
-
-      if (validation.isValid) {
-        assessment.answers.set(questionId, answer);
-      }
-
-      return validation;
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        isValid: false,
-        errors: [`Failed to submit answer: ${errorMessage}`],
-        warnings: []
-      };
-    }
-  }
-
-  completeAssessment(assessmentId: string): ValidationResult & { result?: AssessmentResult } {
-    try {
-      const assessment = this.assessments.get(assessmentId);
-      if (!assessment) {
-        return {
-          isValid: false,
-          errors: ['Assessment not found'],
-          warnings: []
-        };
-      }
-
-      if (assessment.status !== 'in-progress') {
-        return {
-          isValid: false,
-          errors: [`Assessment is already ${assessment.status}`],
-          warnings: []
-        };
-      }
-
-      const topicPerformance = this.calculateTopicPerformance(assessment);
-      const correctAnswers = topicPerformance.reduce(
-        (sum, topic) => sum + (topic.score * topic.questionsCount), 
-        0
-      );
-
-      assessment.completedAt = new Date();
-      assessment.status = 'completed';
-      
-      const timeSpent = assessment.completedAt.getTime() - assessment.startedAt.getTime();
-      const score = (correctAnswers / assessment.questions.length) * 100;
-
-      const result: AssessmentResult = {
-        id: assessmentId,
+        isCorrect,
         score,
-        totalQuestions: assessment.questions.length,
-        correctAnswers: Math.round(correctAnswers),
-        timeSpent,
-        feedback: this.generateFeedback(score, timeSpent, assessment.config),
-        topicPerformance
+        totalQuestions: 1,
+        correctAnswers: isCorrect ? 1 : 0,
+        timeSpent: 0,
+        timestamp: new Date(),
+        feedback: this.generateDetailedFeedback(question, answer, isCorrect),
+        config: this.getDefaultConfig(),
+        questions: [question],
+        startedAt: new Date()
       };
-
-      return {
-        isValid: true,
-        errors: [],
-        warnings: [],
-        result
-      };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        isValid: false,
-        errors: [`Failed to complete assessment: ${errorMessage}`],
-        warnings: []
-      };
+      if (error instanceof AssessmentException) {
+        throw error;
+      }
+      throw new AssessmentException(
+        'SYSTEM_ERROR',
+        'Failed to create assessment result',
+        { question, answer, error }
+      );
     }
   }
 
-  private calculateTopicPerformance(assessment: Assessment): AssessmentResult['topicPerformance'] {
-    const topicResults = new Map<MathsTopic | EnglishTopic, { correct: number; total: number }>();
+  createFinalResult(
+    questions: Question[],
+    answers: string[],
+    timeSpent: number
+  ): AssessmentResult {
+    try {
+      this.validateAssessment(questions, answers);
 
-    assessment.questions.forEach(question => {
-      const result = topicResults.get(question.topic) || { correct: 0, total: 0 };
-      const answer = assessment.answers.get(question.id);
-      
-      result.total++;
-      if (answer === question.correctAnswer) {
-        result.correct++;
+      const results = questions.map((question, index) => 
+        this.createAssessmentResult(question, answers[index])
+      );
+
+      const totalScore = this.calculateTotalScore(results);
+      const correctAnswers = results.filter(r => r.isCorrect).length;
+
+      return {
+        id: crypto.randomUUID(),
+        score: totalScore / questions.length,
+        timeSpent,
+        timestamp: new Date(),
+        questionId: questions[0].id,
+        question: questions[0],
+        answer: answers[0],
+        isCorrect: (totalScore / questions.length) >= 0.7,
+        totalQuestions: questions.length,
+        correctAnswers,
+        feedback: this.aggregateFeedback(results),
+        config: this.getAssessmentConfig(questions),
+        questions,
+        startedAt: new Date(Date.now() - timeSpent * 1000)
+      };
+    } catch (error) {
+      if (error instanceof AssessmentException) {
+        throw error;
+      }
+      throw new AssessmentException(
+        'SYSTEM_ERROR',
+        'Failed to create final result',
+        { questions, answers, timeSpent, error }
+      );
+    }
+  }
+
+  private validateQuestion(question: Question): void {
+    if (!question.id || !question.text || !question.correctAnswer) {
+      throw new AssessmentException(
+        'INVALID_QUESTION',
+        'Question is missing required fields',
+        { question }
+      );
+    }
+  }
+
+  private validateAnswer(answer: string, question: Question): void {
+    if (!answer) {
+      throw new AssessmentException(
+        'INVALID_ANSWER',
+        'Answer cannot be empty',
+        { questionId: question.id }
+      );
+    }
+  }
+
+  private validateAssessment(questions: Question[], answers: string[]): void {
+    if (!validateQuestions(questions)) {
+      throw new AssessmentException(
+        'VALIDATION_ERROR',
+        'Invalid questions format'
+      );
+    }
+
+    if (questions.length !== answers.length) {
+      throw new AssessmentException(
+        'VALIDATION_ERROR',
+        'Number of answers does not match number of questions',
+        { questionCount: questions.length, answerCount: answers.length }
+      );
+    }
+  }
+
+  private evaluateAnswer(question: Question, answer: string): boolean {
+    return question.correctAnswer === answer;
+  }
+
+  private calculateScore(isCorrect: boolean, difficulty: number = 1): number {
+    return isCorrect ? 100 * difficulty : 0;
+  }
+
+  private calculateTotalScore(results: AssessmentResult[]): number {
+    return results.reduce((sum, result) => sum + (result.score || 0), 0);
+  }
+
+  private generateDetailedFeedback(question: Question, answer: string, isCorrect: boolean): string[] {
+    const feedback: string[] = [];
+
+    if (!isCorrect) {
+      feedback.push(`The correct answer was: ${question.correctAnswer}`);
+      if (question.explanation) {
+        feedback.push(question.explanation);
       }
 
-      topicResults.set(question.topic, result);
-    });
+      // Add topic-specific hints
+      const hints = this.getTopicHints(question.topic);
+      if (hints.length > 0) {
+        feedback.push('Helpful tips:', ...hints);
+      }
 
-    return Array.from(topicResults.entries()).map(([topic, result]) => ({
-      topic,
-      score: result.correct / result.total,
-      questionsCount: result.total
-    }));
-  }
-
-  private generateFeedback(score: number, timeSpent: number, config: AssessmentConfig): string[] {
-    const feedback: string[] = [];
-    const timeSpentMinutes = timeSpent / (1000 * 60);
-
-    if (score >= 80) {
-      feedback.push('Excellent performance!');
-    } else if (score >= 60) {
-      feedback.push('Good effort, but there\'s room for improvement.');
+      // Add common misconception warnings
+      const misconceptions = this.checkForMisconceptions(question, answer);
+      if (misconceptions.length > 0) {
+        feedback.push('Watch out for:', ...misconceptions);
+      }
     } else {
-      feedback.push('More practice needed in this area.');
-    }
-
-    const averageTimePerQuestion = timeSpentMinutes / config.questionCount;
-    if (config.timeLimit && timeSpentMinutes >= config.timeLimit / 60) {
-      feedback.push('Try to manage your time better in future assessments.');
-    } else if (averageTimePerQuestion > 2) {
-      feedback.push('Work on improving your speed while maintaining accuracy.');
+      feedback.push('Well done! Here are some additional insights:');
+      const insights = this.getTopicInsights(question.topic);
+      feedback.push(...insights);
     }
 
     return feedback;
   }
-}
 
-export const useAssessmentManager = () => {
-  const manager = AssessmentManager.getInstance();
-  return {
-    createAssessment: manager.createAssessment.bind(manager),
-    submitAnswer: manager.submitAnswer.bind(manager),
-    completeAssessment: manager.completeAssessment.bind(manager)
-  };
-}; 
+  private getTopicHints(topic: string): string[] {
+    // Add your topic-specific hints here
+    const hintMap: Record<string, string[]> = {
+      'math': [
+        'Remember to check your units',
+        'Try breaking the problem into smaller steps',
+        'Look for patterns in the numbers'
+      ],
+      // Add more topics as needed
+    };
+    return hintMap[topic] || [];
+  }
+
+  private getTopicInsights(topic: string): string[] {
+    // Add your topic-specific insights here
+    const insightMap: Record<string, string[]> = {
+      'math': [
+        'This concept is fundamental to algebra',
+        'You can apply this to real-world problems',
+        'This connects with other mathematical principles'
+      ],
+      // Add more topics as needed
+    };
+    return insightMap[topic] || [];
+  }
+
+  private checkForMisconceptions(question: Question, answer: string): string[] {
+    // Add your misconception detection logic here
+    const misconceptions: string[] = [];
+    if (question.type === 'multiple-choice') {
+      // Example misconception check
+      if (answer === question.options?.[0] && answer !== question.correctAnswer) {
+        misconceptions.push('Be careful not to choose the first option by default');
+      }
+    }
+    return misconceptions;
+  }
+
+  private aggregateFeedback(results: AssessmentResult[]): string[] {
+    return results.flatMap(r => r.feedback || []);
+  }
+
+  private getDefaultConfig(): AssessmentConfig {
+    return {
+      topics: [],
+      yearGroup: 1,
+      term: 1,
+      difficulty: 1,
+      subject: 'test',
+      questionCount: 1,
+      timeLimit: undefined,
+      allowNavigation: true,
+      showFeedback: true,
+      adaptiveDifficulty: false,
+      questionTypes: ['multiple-choice']
+    };
+  }
+
+  private getAssessmentConfig(questions: Question[]): AssessmentConfig {
+    return {
+      topics: Array.from(new Set(questions.map(q => q.topic))),
+      yearGroup: 1,
+      term: 1,
+      difficulty: Math.round(questions.reduce((sum, q) => sum + q.difficulty, 0) / questions.length),
+      subject: questions[0]?.subject || 'test',
+      questionCount: questions.length,
+      timeLimit: undefined,
+      allowNavigation: true,
+      showFeedback: true,
+      adaptiveDifficulty: false,
+      questionTypes: Array.from(new Set(questions.map(q => q.type)))
+    };
+  }
+
+  adjustDifficulty(currentDifficulty: number, isCorrect: boolean): number {
+    if (isCorrect) {
+      this.consecutiveCorrect++;
+      this.consecutiveIncorrect = 0;
+      if (this.consecutiveCorrect >= 2) {
+        return Math.min(currentDifficulty + 1, Math.max(...this.difficultyLevels));
+      }
+    } else {
+      this.consecutiveIncorrect++;
+      this.consecutiveCorrect = 0;
+      if (this.consecutiveIncorrect >= 2) {
+        return Math.max(currentDifficulty - 1, Math.min(...this.difficultyLevels));
+      }
+    }
+    return currentDifficulty;
+  }
+} 

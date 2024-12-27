@@ -41,3 +41,5 @@ export const QuizConfigurationInterface: React.FC<QuizConfigProps> = ({
     </Card>
   );
 }; 
+
+

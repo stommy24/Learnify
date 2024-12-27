@@ -155,3 +155,138 @@ model UserAchievement {
   user          User        @relation(fields: [userId], references: [id])
   achievement   Achievement @relation(fields: [achievementId], references: [id])
 }
+
+model AssessmentResult {
+  id          String   @id @default(cuid())
+  userId      String
+  questionId  String
+  correct     Boolean
+  score       Float
+  feedback    String?
+  timestamp   DateTime
+  user        User     @relation(fields: [userId], references: [id])
+  question    Question @relation(fields: [questionId], references: [id])
+
+  @@index([userId])
+  @@index([questionId])
+}
+
+model ScoreCard {
+  id             String   @id @default(cuid())
+  userId         String
+  totalQuestions Int
+  correctAnswers Int
+  totalPoints    Float
+  maxPoints      Float
+  percentage     Float
+  timestamp      DateTime
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model PerformanceMetrics {
+  id              String   @id @default(cuid())
+  userId          String
+  averageScore    Float
+  improvement     Float
+  strengths       String[]
+  weaknesses      String[]
+  recommendedFocus String[]
+  timestamp       DateTime
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model CurriculumStandard {
+  id        String   @id @default(cuid())
+  subject   String   // 'maths' | 'english'
+  keyStage  Int      // 1 | 2 | 3
+  year      Int      // 1-9
+  topics    Topic[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  name        String
+  strand      String?
+  difficulty  Int      // 1-5
+  ageRange    Json     // { min: number, max: number }
+  objectives  LearningObjective[]
+  curriculum  CurriculumStandard @relation(fields: [curriculumId], references: [id])
+  curriculumId String
+  prerequisites Topic[] @relation("TopicPrerequisites")
+  requiredFor   Topic[] @relation("TopicPrerequisites")
+  progress     StudentProgress[]
+}
+
+model LearningObjective {
+  id          String   @id @default(cuid())
+  description String
+  examples    String[]
+  topic       Topic    @relation(fields: [topicId], references: [id])
+  topicId     String
+  questionTypes Json    // QuestionType[]
+  learningStyles Json   // LearningStyleMapping
+  assessmentCriteria String[]
+}
+
+model StudentProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  topicId     String
+  objectiveIds String[]
+  currentObjectiveId String?
+  masteryLevel Json    // { [objectiveId: string]: number }
+  assessmentHistory Json[] // Array of assessment results
+  adaptations Json     // Learning style adaptations
+  user        User     @relation(fields: [userId], references: [id])
+  topic       Topic    @relation(fields: [topicId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, topicId])
+}
+
+model LearningProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  timestamp   DateTime @default(now())
+  results     ProgressResult[]
+  strengths   Json?    // Stored as JSON due to complex structure
+  weaknesses  Json?    // Stored as JSON due to complex structure
+  adaptations LearningAdaptations @relation(fields: [adaptationsId], references: [id])
+  adaptationsId String
+
+  @@index([userId, timestamp])
+}
+
+model ProgressResult {
+  id            String   @id @default(cuid())
+  progressId    String
+  questionId    String
+  isCorrect     Boolean
+  timeSpent     Int
+  learningStyle String
+  topicId       String?
+  mistakePatterns Json?  // Array of strings stored as JSON
+  progress      LearningProgress @relation(fields: [progressId], references: [id])
+
+  @@index([progressId])
+}
+
+model LearningAdaptations {
+  id                String   @id @default(cuid())
+  userId           String
+  preferredStyle   String
+  difficultyLevel  Int
+  pacePreference   String
+  scaffoldingLevel String
+  styleEffectiveness Json    // Record stored as JSON
+  progress         LearningProgress[]
+
+  @@index([userId])
+}

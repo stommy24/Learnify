@@ -38,19 +38,14 @@ export interface LearningStyleMapping {
 }
 
 export interface QuestionAdaptation {
-  format: string;
-  adaptationRules: string[];
-  resources: string[];
+  type: string;
+  format: 'visual_diagram' | 'text' | 'audio_narration' | 'interactive_manipulative';
+  description: string;
+  content?: string;
+  scaffolding?: string[];
 }
 
-export interface QuestionType {
-  type: string;
-  template: string;
-  difficulty: 1 | 2 | 3 | 4 | 5;
-  variables: QuestionVariable[];
-  validationRules: ValidationRule[];
-  scaffolding?: ScaffoldingRule[];
-}
+export type QuestionType = 'multiple-choice' | 'true-false' | 'short-answer' | 'numeric' | 'open-ended';
 
 export interface QuestionVariable {
   name: string;

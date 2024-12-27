@@ -1,18 +1,38 @@
-import { Question } from './questions';
 import { AssessmentConfig } from './assessment';
 
-export interface QuizConfig extends AssessmentConfig {
-  adaptiveDifficulty?: boolean;
-  allowHints?: boolean;
-  showFeedback?: boolean;
-  randomizeOrder?: boolean;
+export type QuestionType = 
+  | 'multiple-choice'
+  | 'true-false'
+  | 'short-answer'
+  | 'essay'
+  | 'matching';
+
+export interface Question {
+  id: string;
+  text: string;
+  correctAnswer: string;
+  options?: string[];
+  difficulty: number;
+  topic: string;
+  subject: string;
+  explanation?: string;
+  type: QuestionType;
+}
+
+export interface QuizConfig {
+  topics: string[];
+  yearGroup: number;
+  term: 1 | 2 | 3;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  subject: string;
+  questionCount: number;
 }
 
 export interface GeneratedQuiz {
   id: string;
-  config: QuizConfig;
   questions: Question[];
-  metadata: QuizMetadata;
+  config: QuizConfig;
+  createdAt: Date;
 }
 
 export interface QuizMetadata {

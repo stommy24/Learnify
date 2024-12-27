@@ -1,53 +1,25 @@
-import React from 'react';
-import { Line } from 'react-chartjs-2';
-import { Progress } from '@prisma/client';
+import { AssessmentResult } from '@/lib/types/assessment';
+import { LearningProgress } from '@/types/progress';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
-interface ProgressChartProps {
-  progress: Progress[];
-  timeRange: 'week' | 'month' | 'year';
+interface Props {
+  progress: LearningProgress;
 }
 
-export function ProgressChart({ progress, timeRange }: ProgressChartProps) {
-  const chartData = React.useMemo(() => {
-    // Process progress data for chart
-    const data = processProgressData(progress, timeRange);
-    
-    return {
-      labels: data.labels,
-      datasets: [
-        {
-          label: 'Progress Score',
-          data: data.scores,
-          fill: false,
-          borderColor: 'rgb(59, 130, 246)',
-          tension: 0.1
-        }
-      ]
-    };
-  }, [progress, timeRange]);
-
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Learning Progress Over Time'
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 100
-      }
-    }
-  };
+export function ProgressChart({ progress }: Props) {
+  const chartData = progress.results.map((result: AssessmentResult) => ({
+    date: result.timestamp ? new Date(result.timestamp).toLocaleDateString() : new Date().toLocaleDateString(),
+    score: result.score,
+    topic: result.question.topic
+  }));
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <Line data={chartData} options={options} />
-    </div>
+    <LineChart width={600} height={300} data={chartData}>
+      <Line type="monotone" dataKey="score" stroke="#8884d8" />
+      <CartesianGrid stroke="#ccc" />
+      <XAxis dataKey="date" />
+      <YAxis />
+      <Tooltip />
+    </LineChart>
   );
 } 

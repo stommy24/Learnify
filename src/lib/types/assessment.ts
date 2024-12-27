@@ -1,30 +1,46 @@
-import { MathsTopic, EnglishTopic } from './subjects';
-import { QuestionType } from './questions';
-
-export interface AssessmentConfig {
-  subject: 'maths' | 'english';
-  yearGroup: number;
-  term: 1 | 2 | 3;
-  topics: (MathsTopic | EnglishTopic)[];
-  questionCount: number;
-  difficulty: 1 | 2 | 3 | 4 | 5;
-  timeLimit?: number;
-}
+import { Question, QuestionType } from './quiz';
 
 export interface AssessmentResult {
   id: string;
-  config: AssessmentConfig;
+  questionId: string;
+  question: Question;
+  answer: string;
+  isCorrect: boolean;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  timeSpent: number;
   startedAt: Date;
-  completedAt?: Date;
-  questions: QuestionAttempt[];
-  score?: number;
-  feedback?: string;
+  timestamp?: Date;
+  feedback: string[];
+  config: AssessmentConfig;
+  questions: Question[];
+  objectiveId?: string;
+  mistakePatterns?: string[];
+  topicPerformance?: TopicPerformance[];
 }
 
-export interface QuestionAttempt {
-  questionId: string;
-  answer?: string | string[];
-  isCorrect?: boolean;
-  timeTaken?: number;
-  hints?: string[];
+export interface TopicPerformance {
+  topic: string;
+  score: number;
+  questionsCount: number;
+}
+
+export interface AssessmentConfig {
+  topics: string[];
+  yearGroup: number;
+  term: number;
+  difficulty: number;
+  subject: string;
+  questionCount: number;
+  timeLimit?: number;
+  allowNavigation: boolean;
+  showFeedback: boolean;
+  adaptiveDifficulty: boolean;
+  questionTypes: QuestionType[];
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
 } 

@@ -58,4 +58,44 @@ export interface GenerationRequest {
 export interface GenerationStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
+}
+
+export interface GeneratedQuestion {
+  id: string;
+  template: any;
+  content: string;
+  answer?: string;
+  options?: string[];
+  distractors: string[];
+  explanation?: string;
+  hints?: string[];
+  metadata: {
+    curriculum: CurriculumMapping;
+    difficulty: DifficultyLevel;
+    generated: string;
+  };
+}
+
+export interface MultipleChoiceStructure {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+export interface FillInBlankStructure {
+  before: string;
+  blank: string;
+  after: string;
+}
+
+export interface OpenEndedStructure {
+  question: string;
+  sampleAnswer: string;
+  rubric: string[];
+}
+
+export interface MathematicalStructure {
+  problem: string;
+  solution: string;
+  steps: string[];
 } 

@@ -1,5 +1,5 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/Button';
 
 export default function Settings() {
@@ -24,3 +24,5 @@ export default function Settings() {
     </MainLayout>
   );
 } 
+
+
