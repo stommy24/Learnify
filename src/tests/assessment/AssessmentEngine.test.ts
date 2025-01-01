@@ -1,5 +1,7 @@
 import { Question, QuestionType } from '@/lib/types/quiz';
 import { AssessmentConfig } from '@/lib/types/assessment';
+import { AssessmentEngine } from '@/lib/assessment/engine';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 
 describe('AssessmentEngine', () => {
   const mockConfig: AssessmentConfig = {
@@ -26,5 +28,19 @@ describe('AssessmentEngine', () => {
     options: ['answer1', 'answer2', 'answer3']
   };
 
-  // ... rest of the test file
+  let engine: AssessmentEngine;
+
+  beforeEach(() => {
+    engine = new AssessmentEngine(mockConfig);
+  });
+
+  it('should initialize with config', () => {
+    expect(engine.getConfig()).toEqual(mockConfig);
+  });
+
+  it('should handle question submission', () => {
+    engine.addQuestion(mockQuestion);
+    const result = engine.submitAnswer('1', 'answer1');
+    expect(result.correct).toBe(true);
+  });
 }); 

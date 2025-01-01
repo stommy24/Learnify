@@ -1,29 +1,23 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import './mocks/prisma';
+import './mocks/auth-adapter';
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    refresh: vi.fn(),
-  }),
-  useSearchParams: () => ({
-    get: vi.fn(),
-  }),
+// Setup React
+global.React = require('react');
+
+// Mock Redis
+jest.mock('@/lib/redis', () => ({
+  redis: {
+    incr: jest.fn().mockResolvedValue(1),
+    expire: jest.fn().mockResolvedValue(true),
+    disconnect: jest.fn(),
+  },
 }));
 
-// Mock next-auth
-vi.mock('next-auth', () => ({
-  getServerSession: vi.fn(),
-}));
-
-// Mock next-auth/react
-vi.mock('next-auth/react', () => ({
-  useSession: vi.fn(() => ({
-    data: null,
-    status: 'unauthenticated',
-  })),
-  signIn: vi.fn(),
-  signOut: vi.fn(),
-})); 
+// Mock environment variables for tests
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+process.env.NEXTAUTH_SECRET = 'test-secret';
+process.env.NEXTAUTH_URL = 'http://localhost:3000';
+process.env.REDIS_URL = 'redis://localhost:6379';
+process.env.REDIS_TOKEN = 'test-token';
+process.env.OPENAI_API_KEY = 'test-key'; 

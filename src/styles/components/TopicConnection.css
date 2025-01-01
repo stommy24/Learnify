@@ -1,0 +1,24 @@
+.topic-connection {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.topic-connection svg {
+  width: 100%;
+  height: 100%;
+}
+
+.topic-connection path {
+  stroke: #ccc;
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 0.3s ease;
+}
+
+.topic-connection path.completed {
+  stroke: #4CAF50;
+} 

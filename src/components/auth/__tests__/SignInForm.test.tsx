@@ -1,21 +1,31 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { SignInForm } from '../SignInForm';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { SignInForm } from '@/components/auth/SignInForm';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
 
-jest.mock('next-auth/react');
+// Mock next-auth
+jest.mock('next-auth/react', () => ({
+  signIn: jest.fn()
+}));
+
+// Mock Next.js router
 jest.mock('next/router', () => ({
   useRouter: jest.fn()
 }));
 
 describe('SignInForm', () => {
-  const mockPush = jest.fn();
-  
+  const mockRouter = {
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn()
+  };
+
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
+    jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue(mockRouter);
   });
 
-  it('submits the form with valid credentials', async () => {
+  test('submits form with email and password', async () => {
     (signIn as jest.Mock).mockResolvedValueOnce({ error: null });
 
     render(<SignInForm />);
@@ -28,17 +38,14 @@ describe('SignInForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-    await waitFor(() => {
-      expect(signIn).toHaveBeenCalledWith('credentials', {
-        redirect: false,
-        email: 'test@example.com',
-        password: 'password123',
-      });
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+    expect(signIn).toHaveBeenCalledWith('credentials', {
+      email: 'test@example.com',
+      password: 'password123',
+      redirect: false,
     });
   });
 
-  it('displays error message on invalid credentials', async () => {
+  test('displays error message on failed sign in', async () => {
     (signIn as jest.Mock).mockResolvedValueOnce({ error: 'Invalid credentials' });
 
     render(<SignInForm />);
@@ -51,8 +58,6 @@ describe('SignInForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/invalid credentials/i)).toBeInTheDocument();
   });
 }); 

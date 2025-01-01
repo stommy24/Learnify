@@ -1,54 +1,35 @@
-import { CurriculumStandard, SubjectArea } from '@/types/curriculum';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PDFParser } from 'pdf2json';
-import { parseEnglishCurriculum } from './englishParser';
-import { parseMathsCurriculum } from './mathsParser';
+import { CurriculumTopic, CurriculumStandard, LearningObjective } from '@/types/curriculum';
 
 export class CurriculumParser {
   private static instance: CurriculumParser;
-  private curriculumCache: Map<string, CurriculumStandard> = new Map();
 
   private constructor() {}
 
-  static getInstance(): CurriculumParser {
+  public static getInstance(): CurriculumParser {
     if (!CurriculumParser.instance) {
       CurriculumParser.instance = new CurriculumParser();
     }
     return CurriculumParser.instance;
   }
 
-  async parseCurriculum(subject: SubjectArea): Promise<CurriculumStandard[]> {
-    const cacheKey = `${subject}-curriculum`;
-    
-    if (this.curriculumCache.has(cacheKey)) {
-      return this.curriculumCache.get(cacheKey)!;
+  async parseCurriculum(pdfPath: string): Promise<string> {
+    if (!pdfPath || typeof pdfPath !== 'string') {
+      throw new Error('Invalid curriculum type');
     }
-
-    const pdfPath = path.join(process.cwd(), `${subject}-curriculum.pdf`);
-    const pdfData = await this.extractPDFContent(pdfPath);
-    
-    let curriculum;
-    if (subject === 'english') {
-      curriculum = await parseEnglishCurriculum(pdfData);
-    } else {
-      curriculum = await parseMathsCurriculum(pdfData);
-    }
-    
-    this.curriculumCache.set(cacheKey, curriculum);
-    return curriculum;
+    return this.extractPDFContent(pdfPath);
   }
 
   private async extractPDFContent(pdfPath: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const pdfParser = new PDFParser();
-      
-      pdfParser.on("pdfParser_dataReady", (pdfData) => {
+      const pdfParser = new (PDFParser as any)();
+
+      pdfParser.on("pdfParser_dataReady", () => {
         const content = pdfParser.getRawTextContent();
         resolve(content);
       });
 
-      pdfParser.on("pdfParser_dataError", (error) => {
+      pdfParser.on("pdfParser_dataError", (error: Error) => {
         reject(error);
       });
 
@@ -56,13 +37,27 @@ export class CurriculumParser {
     });
   }
 
-  public getTopicsByYear(subject: SubjectArea, year: number): CurriculumTopic[] {
-    const curriculum = this.curriculumCache.get(`${subject}-curriculum`);
-    return curriculum?.find(c => c.year === year)?.topics || [];
+  private parseTopic(content: string): CurriculumTopic {
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      name: 'Sample Topic',
+      standards: [],
+      prerequisites: [],
+      difficulty: 1,
+      ageRange: [8, 12],
+      strand: 'mathematics'
+    };
   }
 
-  public getObjectivesByTopic(topicId: string): LearningObjective[] {
-    // Search through cached curriculum for matching topic
-    // Return objectives or empty array if not found
+  private findStandard(code: string, standards: CurriculumStandard[]): CurriculumStandard | undefined {
+    return standards.find((s: CurriculumStandard) => s.code === code);
+  }
+
+  private parseObjective(text: string): LearningObjective {
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      description: text,
+      level: 1
+    };
   }
 } 

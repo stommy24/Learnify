@@ -1,50 +1,42 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { env } from '@/config/environment';
 
+// Create Redis instance directly in the middleware file
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  url: env.REDIS_URL,
+  token: env.REDIS_TOKEN
 });
 
-const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '10 s'), // 10 requests per 10 seconds
-});
+export async function rateLimitMiddleware(request: NextRequest) {
+  try {
+    const ip = request.headers.get('X-Forwarded-For')?.split(',')[0] || request.ip;
+    
+    if (!ip) {
+      return new NextResponse(null, {
+        status: 400,
+        statusText: 'Missing IP Address'
+      });
+    }
 
-export async function rateLimitMiddleware(
-  request: NextRequest,
-  identifier: string = 'global'
-) {
-  const ip = request.ip ?? '127.0.0.1';
-  const { success, limit, reset, remaining } = await ratelimit.limit(
-    `${identifier}_${ip}`
-  );
+    const key = `rate-limit:${ip}`;
+    const current = await redis.incr(key);
 
-  if (!success) {
-    return NextResponse.json(
-      {
-        error: 'Too many requests',
-        limit,
-        remaining,
-        reset: `${reset - Date.now()}ms`,
-      },
-      {
+    if (current === 1) {
+      await redis.expire(key, 60);
+    }
+
+    if (current > 100) {
+      return new NextResponse(null, {
         status: 429,
-        headers: {
-          'X-RateLimit-Limit': limit.toString(),
-          'X-RateLimit-Remaining': remaining.toString(),
-          'X-RateLimit-Reset': reset.toString(),
-        },
-      }
-    );
+        statusText: 'Too Many Requests'
+      });
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error('Rate limit error:', error);
+    return NextResponse.error();
   }
-
-  const response = NextResponse.next();
-  response.headers.set('X-RateLimit-Limit', limit.toString());
-  response.headers.set('X-RateLimit-Remaining', remaining.toString());
-  response.headers.set('X-RateLimit-Reset', reset.toString());
-
-  return response;
 } 

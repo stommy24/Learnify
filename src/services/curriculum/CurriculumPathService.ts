@@ -1,83 +1,64 @@
-import { prisma } from '@/lib/prisma';
-import { ProgressionService } from '../progression/ProgressionService';
-import type { LearningProgress } from '@/types/progress';
-import type { CurriculumStandard, CurriculumTopic, SubjectArea, KeyStage } from '@/types/curriculum';
+import { CurriculumStandard, CurriculumTopic, TopicConnection } from '@/types/curriculum';
 
 export class CurriculumPathService {
-  private progressionService: ProgressionService;
+  private standards: CurriculumStandard[];
 
-  constructor() {
-    this.progressionService = new ProgressionService();
+  constructor(standards: CurriculumStandard[]) {
+    this.standards = standards;
   }
 
-  async getCurrentPath(userId: string): Promise<{
-    subject: SubjectArea;
-    keyStage: KeyStage;
-    currentTopic: CurriculumTopic;
-    progress: number;
-  }> {
-    const path = await prisma.curriculumPath.findUnique({
-      where: { userId },
-      include: {
-        currentTopic: true
-      }
-    });
-
-    const progress = await this.getCurrentProgress(userId, path.currentTopic.id);
-
-    return {
-      subject: path.subject,
-      keyStage: path.keyStage,
-      currentTopic: path.currentTopic,
-      progress: this.calculateTopicProgress(progress)
-    };
+  findTopicById(topicId: string): CurriculumTopic | undefined {
+    for (const standard of this.standards) {
+      const topic = standard.topics.find((t: CurriculumTopic) => t.id === topicId);
+      if (topic) return topic;
+    }
+    return undefined;
   }
 
-  async getNextTopic(
-    userId: string,
-    currentTopicId: string,
-    curriculum: CurriculumStandard
-  ): Promise<CurriculumTopic | null> {
-    const currentTopic = curriculum.topics.find(t => t.id === currentTopicId);
-    const progress = await this.getCurrentProgress(userId, currentTopicId);
+  getTopicConnections(): TopicConnection[] {
+    const connections: TopicConnection[] = [];
+    
+    for (const standard of this.standards) {
+      standard.topics.forEach((topic: CurriculumTopic) => {
+        topic.prerequisites.forEach((preReqId: string) => {
+          connections.push({
+            source: preReqId,
+            target: topic.id,
+            type: 'prerequisite'
+          });
+        });
+      });
+    }
 
-    const eligibleTopics = curriculum.topics.filter(topic => 
-      topic.prerequisites.includes(currentTopicId) &&
-      topic.prerequisites.every(preReqId => 
-        progress.objectiveIds.includes(preReqId)
-      )
-    );
-
-    return eligibleTopics.sort((a, b) => a.difficulty - b.difficulty)[0] || null;
+    return connections.sort((a: TopicConnection, b: TopicConnection) => 
+      a.source.localeCompare(b.source));
   }
 
-  private calculateTopicProgress(progress: LearningProgress): number {
-    const totalObjectives = Object.keys(progress.masteryLevel).length;
-    const masteredObjectives = Object.values(progress.masteryLevel)
-      .filter(level => level >= 85)
-      .length;
-
-    return Math.round((masteredObjectives / totalObjectives) * 100);
+  async getCurrentPath(userId: string): Promise<CurriculumTopic[]> {
+    const path = await this.fetchUserProgress(userId);
+    return path.map(topicId => this.findTopicById(topicId)).filter(Boolean) as CurriculumTopic[];
   }
 
-  private createEmptyProgress(userId: string): LearningProgress {
-    return {
-      id: userId,
-      userId,
-      timestamp: new Date(),
-      results: [],
-      adaptations: [],
-      assessmentHistory: [],
-      objectiveIds: [],
-      masteryLevel: {}
-    };
+  async getNextTopic(userId: string): Promise<CurriculumTopic | null> {
+    const currentPath = await this.getCurrentPath(userId);
+    const lastTopic = currentPath[currentPath.length - 1];
+    
+    if (!lastTopic) return this.getInitialTopic();
+    
+    return this.findNextTopic(lastTopic);
   }
 
-  async getCurrentProgress(userId: string, topicId: string): Promise<LearningProgress> {
-    return this.createEmptyProgress(userId);
+  private async fetchUserProgress(userId: string): Promise<string[]> {
+    return [];
   }
 
-  getProgress(userId: string): LearningProgress {
-    return this.createEmptyProgress(userId);
+  private getInitialTopic(): CurriculumTopic | null {
+    return this.standards
+      .flatMap(s => s.topics)
+      .find(t => t.prerequisites.length === 0 && t.difficulty === 1) || null;
+  }
+
+  private findNextTopic(currentTopic: CurriculumTopic): CurriculumTopic | null {
+    return null;
   }
 } 

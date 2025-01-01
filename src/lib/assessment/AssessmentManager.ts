@@ -31,7 +31,9 @@ export class AssessmentManager {
         feedback: this.generateDetailedFeedback(question, answer, isCorrect),
         config: this.getDefaultConfig(),
         questions: [question],
-        startedAt: new Date()
+        startedAt: new Date(),
+        currentQuestion: 1,
+        completed: false
       };
     } catch (error) {
       if (error instanceof AssessmentException) {
@@ -74,7 +76,9 @@ export class AssessmentManager {
         feedback: this.aggregateFeedback(results),
         config: this.getAssessmentConfig(questions),
         questions,
-        startedAt: new Date(Date.now() - timeSpent * 1000)
+        startedAt: new Date(Date.now() - timeSpent * 1000),
+        currentQuestion: questions.length,
+        completed: true
       };
     } catch (error) {
       if (error instanceof AssessmentException) {

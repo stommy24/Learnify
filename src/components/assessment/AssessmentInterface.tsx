@@ -58,7 +58,9 @@ export function AssessmentInterface({
         questionCount: 1
       },
       questions: [currentQuestion],
-      startedAt: new Date()
+      startedAt: new Date(),
+      currentQuestion: currentIndex + 1,
+      completed: currentIndex === totalQuestions - 1
     };
     
     onAnswer(result);

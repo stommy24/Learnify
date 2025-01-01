@@ -2,32 +2,31 @@ export type SubjectArea = 'maths' | 'english';
 export type KeyStage = 1 | 2 | 3;  // UK Key Stages (Years 1-9)
 
 export interface CurriculumStandard {
-  subject: SubjectArea;
-  keyStage: KeyStage;
-  year: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  id: string;
+  code: string;
+  description: string;
+  objectives: LearningObjective[];
   topics: CurriculumTopic[];
 }
 
 export interface CurriculumTopic {
   id: string;
   name: string;
-  strand?: string; // e.g., "Number", "Algebra" for maths, "Reading", "Writing" for English
-  objectives: LearningObjective[];
-  prerequisites: string[];  // Topic IDs
-  difficulty: 1 | 2 | 3 | 4 | 5;
-  ageRange: {
-    min: number;
-    max: number;
+  standards: CurriculumStandard[];
+  prerequisites: string[];
+  difficulty: number;
+  ageRange: [number, number];
+  strand: string;
+  position?: {
+    x: number;
+    y: number;
   };
 }
 
 export interface LearningObjective {
   id: string;
   description: string;
-  examples: string[];
-  questionTypes: QuestionType[];
-  learningStyles: LearningStyleMapping;
-  assessmentCriteria: string[];
+  level: number;
 }
 
 export interface LearningStyleMapping {
@@ -70,4 +69,10 @@ export interface ScaffoldingRule {
   hint: string;
   example?: string;
   nextStep?: string;
+}
+
+export interface TopicConnection {
+  source: string;
+  target: string;
+  type: 'prerequisite' | 'related';
 } 

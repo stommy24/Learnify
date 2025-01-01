@@ -1,16 +1,46 @@
-import { describe, it, expect } from 'vitest';
+import { ContentService } from '@/services/content/ContentService';
 import { PrismaClient } from '@prisma/client';
-import { mockDeep } from 'vitest-mock-extended';
 
-const prisma = mockDeep<PrismaClient>();
+jest.mock('@prisma/client', () => {
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => ({
+      content: {
+        create: jest.fn().mockImplementation((data) => {
+          return {
+            id: '1',
+            ...data.data,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+        }),
+        delete: jest.fn().mockResolvedValue({})
+      }
+    }))
+  };
+});
 
 describe('Content Management', () => {
-  it('should handle content operations', async () => {
-    const content = await prisma.content.create({
-      data: {
-        content: 'Test content'
-      }
-    });
-    expect(content).toBeDefined();
+  let contentService: ContentService;
+  let prisma: PrismaClient;
+
+  beforeEach(() => {
+    prisma = new PrismaClient();
+    contentService = new ContentService(prisma);
   });
-}); 
+
+  it('should handle content operations', async () => {
+    const testContent = {
+      title: 'Test Content',
+      description: 'Test Description',
+      type: 'LESSON'
+    };
+
+    const content = await contentService.createContent(testContent);
+    expect(content).toBeDefined();
+    expect(content.title).toBe(testContent.title);
+
+    if (content?.id) {
+      await contentService.deleteContent(content.id);
+    }
+  });
+});

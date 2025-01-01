@@ -18,6 +18,8 @@ export interface AssessmentResult {
   objectiveId?: string;
   mistakePatterns?: string[];
   topicPerformance?: TopicPerformance[];
+  currentQuestion: number;
+  completed: boolean;
 }
 
 export interface TopicPerformance {
@@ -44,3 +46,5 @@ export interface ValidationResult {
   isValid: boolean;
   errors: string[];
 } 
+
+export type { Question };

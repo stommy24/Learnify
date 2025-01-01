@@ -1,7 +1,16 @@
-import { http, HttpResponse } from 'msw'
+import { rest } from 'msw'
 
 export const handlers = [
-  http.get('/api/test', () => {
-    return HttpResponse.json({ message: 'Test success' })
+  rest.get('/api/test', (req, res, ctx) => {
+    return res(ctx.json({ message: 'Test success' }))
   }),
+  
+  // Socket.io handler
+  rest.get('/socket.io/*', (req, res, ctx) => {
+    return res(ctx.status(200))
+  }),
+  
+  rest.post('/socket.io/*', (req, res, ctx) => {
+    return res(ctx.status(200))
+  })
 ] 

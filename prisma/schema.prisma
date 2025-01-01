@@ -14,16 +14,29 @@ enum UserRole {
 }
 
 model User {
-  id             String            @id @default(cuid())
-  name           String?
-  email          String            @unique
-  password       String
-  avatarId       String?
-  role           String
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  studentProfile StudentProfile?
-  achievements   UserAchievement[]
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("STUDENT")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  points        Int       @default(0)
+
+  // Add these relation fields
+  accounts      Account[]
+  sessions      Session[]
+  courses       Course[]          @relation("CourseAuthor")
+  enrollments   Enrollment[]
+  assessments   AssessmentResult[]
+  scoreCards    ScoreCard[]
+  metrics       PerformanceMetrics[]
+  progress      StudentProgress[]
+  profile       StudentProfile?
+  achievements  UserAchievement[]
+
+  @@map("users")
 }
 
 model Account {
@@ -252,41 +265,73 @@ model StudentProgress {
 }
 
 model LearningProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  timestamp   DateTime @default(now())
-  results     ProgressResult[]
-  strengths   Json?    // Stored as JSON due to complex structure
-  weaknesses  Json?    // Stored as JSON due to complex structure
-  adaptations LearningAdaptations @relation(fields: [adaptationsId], references: [id])
+  id            String   @id @default(cuid())
+  userId        String
+  timestamp     DateTime
+  strengths     Json
+  weaknesses    Json
   adaptationsId String
-
-  @@index([userId, timestamp])
+  masteryLevel  Json?
+  results       ProgressResult[]
+  adaptations   LearningAdaptations @relation(fields: [adaptationsId], references: [id])
 }
 
 model ProgressResult {
-  id            String   @id @default(cuid())
-  progressId    String
+  id         String           @id @default(cuid())
+  progressId String
+  progress   LearningProgress @relation(fields: [progressId], references: [id])
   questionId    String
   isCorrect     Boolean
   timeSpent     Int
   learningStyle String
   topicId       String?
   mistakePatterns Json?  // Array of strings stored as JSON
-  progress      LearningProgress @relation(fields: [progressId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([progressId])
 }
 
 model LearningAdaptations {
-  id                String   @id @default(cuid())
+  id       String             @id @default(cuid())
+  progress LearningProgress[]
   userId           String
   preferredStyle   String
   difficultyLevel  Int
   pacePreference   String
   scaffoldingLevel String
   styleEffectiveness Json    // Record stored as JSON
-  progress         LearningProgress[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([userId])
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  text          String
+  correctAnswer String
+  difficulty    Int
+  subject       String
+  topic         String
+  type          String
+  // Add any other fields your Question model needs
+
+  // Add the reverse relation if needed
+  assessments   AssessmentResult[]
+}
+
+model Assessment {
+  id          String   @id @default(cuid())
+  // ... other fields
+}
+
+model Submission {
+  id          String   @id @default(cuid())
+  // ... other fields
+}
+
+model Content {
+  id          String   @id @default(cuid())
+  // ... other fields
 }

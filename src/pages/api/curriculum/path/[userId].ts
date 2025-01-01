@@ -1,36 +1,32 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { CurriculumPathService } from '@/services/curriculum/CurriculumPathService';
+import { prisma } from '@/lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) return res.status(401).json({ error: 'Unauthorized' });
-
   const { userId } = req.query;
-  const pathService = new CurriculumPathService();
-
+  
   try {
+    // Fetch standards from database
+    const standards = await prisma.curriculumStandard.findMany({
+      include: { topics: true }
+    });
+    
+    const pathService = new CurriculumPathService(standards);
+
     switch (req.method) {
       case 'GET':
         const currentPath = await pathService.getCurrentPath(userId as string);
         return res.status(200).json(currentPath);
 
       case 'POST':
-        const { currentTopicId, curriculum } = req.body;
-        const nextTopic = await pathService.getNextTopic(
-          userId as string,
-          currentTopicId,
-          curriculum
-        );
+        const nextTopic = await pathService.getNextTopic(userId as string);
         return res.status(200).json(nextTopic);
 
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
+        return res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Curriculum path error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 } 

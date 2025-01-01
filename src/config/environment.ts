@@ -1,27 +1,23 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
-  NEXTAUTH_URL: z.string().url(),
+  DATABASE_URL: z.string(),
   NEXTAUTH_SECRET: z.string(),
-  NEXT_PUBLIC_SENTRY_DSN: z.string(),
-  // Add other environment variables here
+  NEXTAUTH_URL: z.string(),
+  REDIS_URL: z.string(),
+  REDIS_TOKEN: z.string(),
+  OPENAI_API_KEY: z.string(),
+  NODE_ENV: z.string()
 });
 
-const envParsed = envSchema.safeParse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  // Add other environment variables here
-});
+const envParsed = envSchema.safeParse(process.env);
 
 if (!envParsed.success) {
   console.error(
-    "❌ Invalid environment variables:",
+    'Invalid environment variables:',
     JSON.stringify(envParsed.error.format(), null, 2)
   );
-  process.exit(1);
+  throw new Error('Invalid environment configuration');
 }
 
 export const env = envParsed.data;

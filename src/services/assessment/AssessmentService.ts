@@ -1,12 +1,30 @@
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
-import { Assessment, Submission } from '@prisma/client';
+
+interface Assessment {
+  id: string;
+  userId: string;
+  title: string;
+  submissions?: Submission[];
+}
+
+interface Submission {
+  id?: string;
+  userId: string;
+  assessmentId: string;
+  score: number;
+}
 
 export class AssessmentService {
-  static async createAssessment(data: Partial<Assessment>) {
-    return prisma.assessment.create({
-      data: data as any
-    });
+  constructor(private api: any) {}
+
+  async createAssessment(assessment: any): Promise<any> {
+    try {
+      const { data } = await this.api.post('/assessments', assessment);
+      return data;
+    } catch (error) {
+      throw new Error('Failed to create assessment');
+    }
   }
 
   static async getAssessments(userId: string, filters: any) {

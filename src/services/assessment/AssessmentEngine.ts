@@ -20,7 +20,9 @@ export class AssessmentEngine {
       timestamp: new Date(),
       feedback: [],
       config: this.createConfig(question),
-      questions: [question]
+      questions: [question],
+      currentQuestion: 1,
+      completed: false
     };
   }
 
