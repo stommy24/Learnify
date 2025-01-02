@@ -13,4 +13,12 @@ export interface Skill {
   questions?: AssessmentQuestion[];
   attempts?: MasteryAttempt[];
   progress?: MasteryProgress[];
+}
+
+export enum SkillLevel {
+  NOVICE = 'NOVICE',
+  BEGINNER = 'BEGINNER',
+  INTERMEDIATE = 'INTERMEDIATE',
+  ADVANCED = 'ADVANCED',
+  EXPERT = 'EXPERT'
 } 

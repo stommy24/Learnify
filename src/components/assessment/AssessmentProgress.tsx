@@ -1,39 +1,34 @@
-import { FC } from 'react';
-import { Assessment, SkillLevel } from '@/types/assessment';
+import React from 'react';
+import { LinearProgress, Typography, Box } from '@mui/material';
+import { Assessment } from '@/types/assessment';
 
-interface Props {
+interface AssessmentProgressProps {
   assessment: Assessment;
+  currentQuestion: number;
 }
 
-export const AssessmentProgress: FC<Props> = ({ assessment }) => {
-  const totalQuestions = assessment.questions?.length ?? 0;
-  const currentQuestion = assessment.currentQuestionIndex + 1;
+export const AssessmentProgress: React.FC<AssessmentProgressProps> = ({
+  assessment,
+  currentQuestion
+}) => {
+  const totalQuestions = assessment.questions.length;
   const progress = (currentQuestion / totalQuestions) * 100;
 
-  const getSkillLevelName = (level: SkillLevel): string => {
-    switch (level) {
-      case 'NOVICE': return 'Novice';
-      case 'BEGINNER': return 'Beginner';
-      case 'INTERMEDIATE': return 'Intermediate';
-      case 'ADVANCED': return 'Advanced';
-      case 'EXPERT': return 'Expert';
-      default: return 'Unknown';
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="w-full bg-gray-200 rounded-full h-2.5">
-        <div
-          className="bg-blue-600 h-2.5 rounded-full"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      
-      <div className="flex justify-between text-sm text-gray-600">
-        <span>Question {currentQuestion} of {totalQuestions}</span>
-        <span>Score: {assessment.score}</span>
-      </div>
-    </div>
+    <Box sx={{ width: '100%', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          Question {currentQuestion + 1} of {totalQuestions}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {Math.round(progress)}%
+        </Typography>
+      </Box>
+      <LinearProgress 
+        variant="determinate" 
+        value={progress} 
+        sx={{ height: 8, borderRadius: 4 }}
+      />
+    </Box>
   );
 }; 

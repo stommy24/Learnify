@@ -3,12 +3,13 @@ import {
   PlacementTest, 
   PlacementQuestion, 
   PlacementTestStatus,
-  InitialPlacementParams 
+  InitialPlacementParams,
+  PlacementTestError,
+  PlacementTestErrorCodes,
+  QuestionType,
+  EvaluationResult
 } from '@/types/placement';
-import { 
-  PlacementTestError, 
-  PlacementTestErrorCodes 
-} from '@/lib/errors/PlacementTestError';
+import { CustomError } from '@/lib/utils/CustomError';
 
 export class PlacementSystem {
   private prisma: PrismaClient;
@@ -34,19 +35,11 @@ export class PlacementSystem {
       `;
 
       if (!test) {
-        throw new PlacementTestError(
-          'Test not found',
-          PlacementTestErrorCodes.TEST_NOT_FOUND,
-          404
-        );
+        throw new Error(PlacementTestErrorCodes.TEST_NOT_FOUND);
       }
 
       if (test.status === PlacementTestStatus.COMPLETED) {
-        throw new PlacementTestError(
-          'Test has already been completed',
-          PlacementTestErrorCodes.TEST_ALREADY_COMPLETED,
-          400
-        );
+        throw new Error(PlacementTestErrorCodes.TEST_ALREADY_COMPLETED);
       }
 
       const question = await this.prisma.$queryRaw<PlacementQuestion>`
@@ -54,27 +47,15 @@ export class PlacementSystem {
       `;
 
       if (!question) {
-        throw new PlacementTestError(
-          'Question not found',
-          PlacementTestErrorCodes.INVALID_QUESTION,
-          404
-        );
+        throw new Error(PlacementTestErrorCodes.INVALID_QUESTION);
       }
 
       if (!this.validateAnswer(question, answer)) {
-        throw new PlacementTestError(
-          'Invalid answer format',
-          PlacementTestErrorCodes.INVALID_ANSWER,
-          400
-        );
+        throw new Error(PlacementTestErrorCodes.INVALID_ANSWER);
       }
 
       if (await this.isRateLimited(testId)) {
-        throw new PlacementTestError(
-          'Too many answers submitted recently',
-          PlacementTestErrorCodes.RATE_LIMIT_EXCEEDED,
-          429
-        );
+        throw new Error(PlacementTestErrorCodes.RATE_LIMIT_EXCEEDED);
       }
 
       const updatedQuestion = await this.prisma.$executeRaw`
@@ -92,11 +73,7 @@ export class PlacementSystem {
       }
 
       if (error instanceof Error) {
-        throw new PlacementTestError(
-          'Database operation failed',
-          PlacementTestErrorCodes.DATABASE_ERROR,
-          500
-        );
+        throw new Error(PlacementTestErrorCodes.DATABASE_ERROR);
       }
 
       throw error;
@@ -110,11 +87,7 @@ export class PlacementSystem {
     `;
 
     if (!test) {
-      throw new PlacementTestError(
-        'Test not found',
-        PlacementTestErrorCodes.TEST_NOT_FOUND,
-        404
-      );
+      throw new Error(PlacementTestErrorCodes.TEST_NOT_FOUND);
     }
 
     // Logic to select next question based on difficulty
@@ -154,16 +127,108 @@ export class PlacementSystem {
   }
 
   private validateAnswer(question: PlacementQuestion, answer: string): boolean {
-    switch (question.type) {
-      case 'MULTIPLE_CHOICE':
-        return ['A', 'B', 'C', 'D'].includes(answer);
-      case 'NUMERIC':
-        return !isNaN(Number(answer));
-      case 'TEXT':
-        return answer.length > 0 && answer.length <= 1000;
-      default:
-        return false;
+    try {
+      const result = this.checkAnswer(question, answer);
+      
+      if (question.type === QuestionType.MULTIPLE_CHOICE) {
+        return result === question.correctAnswer;
+      } else if (question.type === QuestionType.NUMERIC) {
+        return Math.abs(result - parseFloat(question.correctAnswer)) < 0.01;
+      } else if (question.type === QuestionType.TEXT) {
+        return result.toLowerCase() === question.correctAnswer.toLowerCase();
+      }
+      
+      throw new CustomError('VALIDATION_ERROR', 'Invalid question type');
+    } catch (error) {
+      throw new CustomError('VALIDATION_ERROR', 'Failed to validate answer');
     }
+  }
+
+  private checkAnswer(question: PlacementQuestion, answer: string): any {
+    // Add validation logic here
+    return answer;
+  }
+
+  async getTestResult(testId: string) {
+    try {
+      // Implementation
+      return result;
+    } catch (error) {
+      throw new CustomError('Failed to get test result');
+    }
+  }
+
+  private handleError(error: Error): never {
+    throw new PlacementTestError(
+      PlacementTestErrorCodes.SYSTEM_ERROR,
+      error.message
+    );
+  }
+
+  async evaluateAnswer(
+    testId: string,
+    questionId: string,
+    answer: string,
+    currentDifficulty: number
+  ): Promise<EvaluationResult> {
+    const question = await this.getQuestion(testId, questionId);
+    if (!question) {
+      throw new PlacementTestError(
+        PlacementTestErrorCodes.INVALID_QUESTION,
+        'Question not found'
+      );
+    }
+
+    switch (question.type) {
+      case QuestionType.MULTIPLE_CHOICE:
+        return this.evaluateMultipleChoice(question, answer);
+      case QuestionType.NUMERIC:
+        return this.evaluateNumeric(question, answer);
+      case QuestionType.TEXT:
+        return this.evaluateTextInput(question, answer);
+      default:
+        throw new PlacementTestError(
+          PlacementTestErrorCodes.INVALID_QUESTION,
+          'Invalid question type'
+        );
+    }
+  }
+
+  private async getQuestion(testId: string, questionId: string): Promise<PlacementQuestion | null> {
+    // Implementation to fetch question from database
+    // ... existing code ...
+  }
+
+  private evaluateMultipleChoice(question: PlacementQuestion, answer: string): EvaluationResult {
+    return {
+      isCorrect: question.correctAnswer === answer,
+      score: question.correctAnswer === answer ? 1 : 0,
+      feedback: question.correctAnswer === answer ? 'Correct!' : 'Incorrect. Try again.'
+    };
+  }
+
+  private evaluateNumeric(question: PlacementQuestion, answer: string): EvaluationResult {
+    const numericAnswer = parseFloat(answer);
+    const correctAnswer = parseFloat(question.correctAnswer);
+    const isCorrect = !isNaN(numericAnswer) && !isNaN(correctAnswer) && 
+                     Math.abs(numericAnswer - correctAnswer) < 0.001;
+    
+    return {
+      isCorrect,
+      score: isCorrect ? 1 : 0,
+      feedback: isCorrect ? 'Correct!' : 'Incorrect. Try again.'
+    };
+  }
+
+  private evaluateTextInput(question: PlacementQuestion, answer: string): EvaluationResult {
+    const normalizedAnswer = answer.trim().toLowerCase();
+    const normalizedCorrect = question.correctAnswer.trim().toLowerCase();
+    
+    return {
+      isCorrect: normalizedAnswer === normalizedCorrect,
+      score: normalizedAnswer === normalizedCorrect ? 1 : 0,
+      feedback: normalizedAnswer === normalizedCorrect ? 'Correct!' : 'Incorrect. Try again.'
+    };
   }
 }
 

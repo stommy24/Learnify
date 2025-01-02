@@ -18,12 +18,13 @@ export async function rateLimitMiddleware(
   const ip = request.ip ?? '127.0.0.1';
   const key = `ratelimit:${ip}`;
 
-  const [requests] = await redis
+  const result = await redis
     .multi()
     .incr(key)
     .expire(key, WINDOW_SIZE_IN_SECONDS)
-    .exec() as [number, boolean][];
+    .exec();
 
+  const requests = result?.[0]?.[1] as number || 0;
   const remaining = Math.max(0, MAX_REQUESTS_PER_WINDOW - requests);
 
   const response = NextResponse.next();

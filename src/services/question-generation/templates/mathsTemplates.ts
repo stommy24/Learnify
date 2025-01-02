@@ -1,49 +1,27 @@
-import { QuestionTemplate } from '../types';
+import { QuestionFormat } from '@/types/assessment';
+
+interface QuestionTemplate {
+  content: string;
+  format: QuestionFormat;
+  difficulty: number;
+  variables?: Record<string, any>;
+  generateAnswer: () => string;
+}
 
 export const mathsTemplates: QuestionTemplate[] = [
   {
-    type: 'mathematical',
-    structure: {
-      mathematical: {
-        // Year 1-2 Number and Place Value
-        problem: "What is ${num1} ${operator} ${num2}?",
-        variables: [
-          {
-            name: 'num1',
-            range: [1, 20],
-            step: 1
-          },
-          {
-            name: 'num2',
-            range: [1, 20],
-            step: 1
-          },
-          {
-            name: 'operator',
-            values: ['+', '-']
-          }
-        ],
-        solution: '${num1} ${operator} ${num2}',
-        workingSteps: [
-          'Read the numbers carefully',
-          'Use number line or counters if needed',
-          'Write your answer'
-        ]
-      }
+    content: "What is {x} + {y}?",
+    format: QuestionFormat.NUMERIC,
+    difficulty: 1,
+    variables: {
+      x: () => Math.floor(Math.random() * 10),
+      y: () => Math.floor(Math.random() * 10)
     },
-    curriculum: {
-      subject: 'mathematics',
-      keyStage: 1,
-      year: 1,
-      term: 1,
-      unit: 'Number and Place Value',
-      topic: 'Addition and Subtraction',
-      learningObjectives: [
-        'read, write and interpret mathematical statements involving addition (+), subtraction (−) and equals (=) signs',
-        'represent and use number bonds and related subtraction facts within 20'
-      ]
-    },
-    difficulty: 'easy'
+    generateAnswer: function() {
+      const x = this.variables?.x();
+      const y = this.variables?.y();
+      return String(x + y);
+    }
   },
-  // Add more templates based on curriculum
+  // ... other templates
 ]; 

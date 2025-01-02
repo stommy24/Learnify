@@ -1,44 +1,58 @@
 import { Prisma } from '@prisma/client';
 
-export type AssessmentType = 'PLACEMENT' | 'DIAGNOSTIC' | 'PROGRESS';
-export type AssessmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-export type SkillLevel = 'NOVICE' | 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+export enum AssessmentType {
+  PLACEMENT = 'PLACEMENT',
+  LEVEL_END = 'LEVEL_END',
+  PRACTICE = 'PRACTICE',
+  DIAGNOSTIC = 'DIAGNOSTIC'
+}
+
+export enum QuestionFormat {
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+  TEXT_INPUT = 'TEXT_INPUT',
+  DRAWING = 'DRAWING',
+  EQUATION_BUILDER = 'EQUATION_BUILDER',
+  DRAG_DROP = 'DRAG_DROP',
+  NUMERIC = 'NUMERIC'
+}
+
+export interface Question {
+  id: string;
+  content: string;
+  type: QuestionFormat;
+  options?: string[];
+  correctAnswer: string;
+  explanation?: string;
+  difficulty: number;
+}
 
 export interface Assessment {
   id: string;
   type: AssessmentType;
-  status: AssessmentStatus;
-  studentId: string;
-  currentQuestionIndex: number;
-  score: number;
-  timeSpent: number;
+  questions: Question[];
+  userId: string;
+  subjectId: string;
+  score?: number;
+  completed: boolean;
   createdAt: Date;
   updatedAt: Date;
-  questions?: AssessmentQuestion[];
 }
 
-export interface AssessmentQuestion {
-  id: string;
+export interface AssessmentQuestion extends Question {
   assessmentId: string;
-  skillId: string;
-  difficulty: number;
-  content: string;
-  correctAnswer: string;
-  points: number;
-  timeLimit?: number;
-  createdAt: Date;
-  updatedAt: Date;
-  assessment?: Assessment;
+  order: number;
 }
 
-export interface AssessmentWithQuestions extends Assessment {
-  questions: AssessmentQuestion[];
+export interface SkillLevel {
+  subject: string;
+  level: number;
+  confidence: number;
+  lastUpdated: Date;
 }
 
-export const SkillLevels: Record<SkillLevel, number> = {
-  NOVICE: 1,
-  BEGINNER: 2,
-  INTERMEDIATE: 3,
-  ADVANCED: 4,
-  EXPERT: 5
-};
+export interface AssessmentResult {
+  questionId: string;
+  isCorrect: boolean;
+  timeSpent: number;
+  learningStyle?: string;
+}

@@ -1,30 +1,24 @@
-import { NextResponse } from 'next/server';
-import { placementSystem } from '@/lib/placement/PlacementSystem';
+import { PlacementSystem } from '@/lib/placement/PlacementSystem';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const testId = searchParams.get('testId');
-    const currentDifficulty = searchParams.get('difficulty');
+    const userId = searchParams.get('userId');
+    const currentDifficulty = parseFloat(searchParams.get('difficulty') || '0');
 
-    if (!testId) {
-      return NextResponse.json(
-        { message: 'Test ID is required' },
-        { status: 400 }
-      );
+    if (!userId) {
+      return new Response('User ID is required', { status: 400 });
     }
 
-    const nextQuestion = await placementSystem.getNextQuestion(
-      testId,
-      currentDifficulty ? parseInt(currentDifficulty) : undefined
-    );
+    const placementSystem = new PlacementSystem();
+    const nextQuestion = await placementSystem.getNextQuestion(userId, currentDifficulty);
 
-    return NextResponse.json(nextQuestion);
+    return new Response(JSON.stringify(nextQuestion), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    console.error('Get next question error:', error);
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'Failed to get next question' },
-      { status: error instanceof Error ? (error as any).status || 500 : 500 }
-    );
+    console.error('Error getting next question:', error);
+    return new Response('Failed to get next question', { status: 500 });
   }
 } 

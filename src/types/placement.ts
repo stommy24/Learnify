@@ -5,9 +5,17 @@ export enum PlacementTestStatus {
 }
 
 export enum QuestionType {
-  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
-  NUMERIC = 'NUMERIC',
-  TEXT = 'TEXT'
+  MULTIPLE_CHOICE = 'multiple-choice',
+  TEXT = 'text',
+  NUMERIC = 'numeric',
+  DRAWING = 'drawing',
+  EQUATION = 'equation'
+}
+
+export enum AssessmentType {
+  PLACEMENT = 'placement',
+  PROGRESS = 'progress',
+  LEVEL_END = 'level-end'
 }
 
 export interface InitialPlacementParams {
@@ -71,14 +79,51 @@ export interface PlacementSection {
   questions: PlacementQuestion[];
 }
 
+export enum PlacementTestErrorCodes {
+  INVALID_QUESTION = 'INVALID_QUESTION',
+  INVALID_ANSWER = 'INVALID_ANSWER',
+  SYSTEM_ERROR = 'SYSTEM_ERROR',
+  TIMEOUT = 'TIMEOUT',
+  TEST_NOT_FOUND = 'TEST_NOT_FOUND',
+  TEST_ALREADY_COMPLETED = 'TEST_ALREADY_COMPLETED',
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+  DATABASE_ERROR = 'DATABASE_ERROR'
+}
+
+export class PlacementTestError extends Error {
+  constructor(
+    public code: PlacementTestErrorCodes,
+    message: string
+  ) {
+    super(message);
+    this.name = 'PlacementTestError';
+  }
+}
+
 export interface PlacementQuestion {
   id: string;
-  sectionId: string;
-  content: string;
   type: QuestionType;
+  content: string;
   correctAnswer: string;
-  answer?: string;
-  timeSpent: number;
-  isCorrect?: boolean;
+  options?: string[];
   difficulty: number;
+  conceptId: string;
+}
+
+export interface EvaluationResult {
+  isCorrect: boolean;
+  score: number;
+  feedback?: string;
+}
+
+export interface Assessment {
+  id: string;
+  userId: string;
+  type: AssessmentType;
+  status: 'pending' | 'completed';
+  score?: number;
+  difficulty: number;
+  conceptId: string;
+  createdAt: Date;
+  updatedAt: Date;
 } 

@@ -1,51 +1,55 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/db';
 import { TestGenerator } from '@/lib/placement/TestGenerator';
-import { logger } from '@/lib/monitoring';
+import { AssessmentType } from '@/types/assessment';
+import { NextResponse } from 'next/server';
+import { Prisma, User } from '@prisma/client';
 
-const prisma = new PrismaClient();
-const testGenerator = new TestGenerator(prisma);
+interface UserWithEnrollments extends User {
+  enrollments: Array<{
+    subjectId: string;
+  }>;
+}
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Verify CRON secret to ensure this is a legitimate request
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Get active users with specific fields
+    const users = (await prisma.user.findMany({
+      where: {
+        isActive: true
+      },
+      include: {
+        studentProfile: true,
+        authoredCourses: true
+      }
+    })) as unknown as UserWithEnrollments[];
+
+    const testGenerator = new TestGenerator();
+
+    for (const user of users) {
+      try {
+        for (const enrollment of user.enrollments) {
+          const test = await testGenerator.generateTest({
+            userId: user.id,
+            subjectId: enrollment.subjectId,
+            type: AssessmentType.PRACTICE
+          });
+
+          if (user.needsPlacement) {
+            const placementTest = await testGenerator.generateTest({
+              userId: user.id,
+              subjectId: enrollment.subjectId,
+              type: AssessmentType.PLACEMENT
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error generating tests for user ${user.id}:`, error);
+      }
     }
 
-    // Get all active students
-    const students = await prisma.user.findMany({
-      where: {
-        status: 'ACTIVE',
-        role: 'STUDENT'
-      },
-      select: {
-        id: true
-      }
-    });
-
-    // Generate tests for each student
-    const results = await Promise.allSettled(
-      students.map(student => testGenerator.generateDailyTests(student.id))
-    );
-
-    const summary = {
-      total: results.length,
-      succeeded: results.filter(r => r.status === 'fulfilled').length,
-      failed: results.filter(r => r.status === 'rejected').length
-    };
-
-    logger.info('Daily test generation complete', summary);
-
-    return NextResponse.json(summary);
+    return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Failed to run daily test generation', { 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    });
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    );
+    console.error('Error in daily test generation:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

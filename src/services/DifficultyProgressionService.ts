@@ -1,53 +1,43 @@
-interface KumonLevel {
-  level: string; // A, B, C, etc.
-  subLevel: number; // 1-6
-  description: string;
-  requiredMastery: number;
-  speedTarget: number; // questions per minute
+import prisma from '@/lib/db';
+import { CustomError } from '@/lib/utils/CustomError';
+import { PrismaTransaction } from '@/types/prisma';
+
+interface ProgressionConfig {
+  readonly INCREASE_THRESHOLD: number;
+  readonly DECREASE_THRESHOLD: number;
+  readonly TIME_LIMITS: {
+    readonly TOO_FAST: number;
+    readonly TOO_SLOW: number;
+  };
+  readonly CONFIDENCE_THRESHOLD: number;
+  readonly MIN_QUESTIONS_PER_LEVEL: number;
 }
 
 export class DifficultyProgressionService {
-  private readonly MASTERY_THRESHOLD = 90;
-  private readonly SPEED_IMPROVEMENT_TARGET = 1.2; // 20% faster
+  private config: ProgressionConfig = {
+    INCREASE_THRESHOLD: 3,
+    DECREASE_THRESHOLD: 2,
+    TIME_LIMITS: {
+      TOO_FAST: 10,
+      TOO_SLOW: 120
+    },
+    CONFIDENCE_THRESHOLD: 0.8,
+    MIN_QUESTIONS_PER_LEVEL: 3
+  };
 
-  async determineNextDifficulty(
-    studentId: string,
-    currentTopic: CurriculumTopic,
-    performance: AssessmentResult
-  ): Promise<CurriculumTopic> {
-    const progress = await this.progressService.getStudentProgress(studentId);
-    
-    // Check mastery criteria
-    if (this.hasMasteredTopic(performance, progress)) {
-      return this.getNextTopic(currentTopic);
+  async updateDifficulty(userId: string, tx: PrismaTransaction) {
+    try {
+      const metrics = await this.calculateMetrics(userId);
+      const newDifficulty = this.calculateNewDifficulty(metrics);
+      await this.saveDifficulty(userId, newDifficulty, tx);
+      return newDifficulty;
+    } catch (error) {
+      throw new CustomError('DIFFICULTY_UPDATE', 'Failed to update difficulty');
     }
-
-    // If not mastered, generate similar difficulty
-    return this.getReinforcementTopic(currentTopic);
   }
 
-  private hasMasteredTopic(
-    performance: AssessmentResult,
-    progress: StudentProgress
-  ): boolean {
-    return (
-      performance.accuracy >= this.MASTERY_THRESHOLD &&
-      performance.speed >= progress.currentLevel.speedTarget &&
-      performance.consecutiveSuccess >= 3
-    );
-  }
-
-  async generateWorksheet(
-    studentId: string,
-    topic: CurriculumTopic
-  ): Promise<Worksheet> {
-    const progress = await this.progressService.getStudentProgress(studentId);
-    
-    return {
-      questions: this.generateQuestions(topic, progress.currentKumonLevel),
-      timeLimit: this.calculateTimeLimit(topic, progress),
-      requiredAccuracy: this.MASTERY_THRESHOLD,
-      difficulty: progress.currentKumonLevel
-    };
+  private calculateNewDifficulty(metrics: any): number {
+    // Difficulty calculation logic
+    return 0; // Placeholder
   }
 } 
