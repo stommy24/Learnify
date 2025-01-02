@@ -1,94 +1,44 @@
-import type { QuestionType } from '@/types/curriculum';
+import { Prisma } from '@prisma/client';
 
-export interface Question {
+export type AssessmentType = 'PLACEMENT' | 'DIAGNOSTIC' | 'PROGRESS';
+export type AssessmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+export type SkillLevel = 'NOVICE' | 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+
+export interface Assessment {
   id: string;
-  type: QuestionType;
+  type: AssessmentType;
+  status: AssessmentStatus;
+  studentId: string;
+  currentQuestionIndex: number;
+  score: number;
+  timeSpent: number;
+  createdAt: Date;
+  updatedAt: Date;
+  questions?: AssessmentQuestion[];
+}
+
+export interface AssessmentQuestion {
+  id: string;
+  assessmentId: string;
+  skillId: string;
+  difficulty: number;
   content: string;
-  template: string;
   correctAnswer: string;
-  options?: string[];
   points: number;
-  validationRules: {
-    type: 'exact' | 'pattern' | 'range';
-    value: string | { min: number; max: number };
-  }[];
-  scaffolding?: {
-    hint: string;
-    condition?: string;
-  }[];
-  difficulty: 'easy' | 'medium' | 'hard';
-  topic: string;
-  explanation?: string;
-  hints?: string[];
-  tolerance?: number; // For numeric questions
-  rubric?: string[]; // For open-ended questions
-  metadata?: {
-    created: string;
-    author: string;
-    version: string;
-  };
+  timeLimit?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  assessment?: Assessment;
 }
 
-export interface Answer {
-  content: string;
-  timestamp: string;
+export interface AssessmentWithQuestions extends Assessment {
+  questions: AssessmentQuestion[];
 }
 
-export interface AssessmentResult {
-  id: string;
-  questionId: string;
-  question: {
-    topic: string;
-    type: string;
-    points: number;
-    content?: string;
-  };
-  answer?: string;
-  score: number;
-  isCorrect: boolean;
-  totalQuestions: number;
-  correctAnswers: number;
-  timeSpent: number;
-  timestamp: Date;
-  feedback: string[];
-  mistakePatterns?: string[];
-  topicPerformance: {
-    topic: string;
-    score: number;
-    questionsCount: number;
-  }[];
-}
-
-export interface ScoreCard {
-  userId: string;
-  totalQuestions: number;
-  correctAnswers: number;
-  timeSpent: number;
-  timestamp: string;
-  totalPoints: number;
-  maxPoints: number;
-  percentage: number;
-}
-
-export type Difficulty = 'easy' | 'medium' | 'hard';
-
-export interface PerformanceMetrics extends Record<string, unknown> {
-  userId: string;
-  topic: string;
-  score: number;
-  timeSpent: number;
-  timestamp: string;
-  difficulty: Difficulty;
-  mistakes: number;
-  recommendedFocus: string[];
-}
-
-export interface AnalyticsData {
-  overallProgress: number;
-  topicStrengths: Record<string, number>;
-  learningTrends: Array<{
-    date: string;
-    score: number;
-  }>;
-  recommendedActions: string[];
-} 
+export const SkillLevels: Record<SkillLevel, number> = {
+  NOVICE: 1,
+  BEGINNER: 2,
+  INTERMEDIATE: 3,
+  ADVANCED: 4,
+  EXPERT: 5
+};

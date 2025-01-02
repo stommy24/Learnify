@@ -25,16 +25,21 @@ model User {
   points        Int       @default(0)
 
   // Add these relation fields
-  accounts      Account[]
-  sessions      Session[]
-  courses       Course[]          @relation("CourseAuthor")
-  enrollments   Enrollment[]
-  assessments   AssessmentResult[]
-  scoreCards    ScoreCard[]
-  metrics       PerformanceMetrics[]
-  progress      StudentProgress[]
-  profile       StudentProfile?
-  achievements  UserAchievement[]
+  accounts        Account[]
+  sessions        Session[]
+  courses         Course[]             @relation("CourseAuthor")
+  enrollments     Enrollment[]
+  assessments     AssessmentResult[]
+  scoreCards      ScoreCard[]
+  metrics         PerformanceMetrics[]
+  progress        StudentProgress[]
+  profile         StudentProfile?
+  achievements    UserAchievement[]
+  masteryAttempts MasteryAttempt[]
+  masteryProgress MasteryProgress[]
+  Assessment      Assessment[]
+  masteryRecords  MasteryRecord[]
+  placementTests  PlacementTest[]
 
   @@map("users")
 }
@@ -75,14 +80,14 @@ model VerificationToken {
 }
 
 model StudentProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  xpPoints  Int      @default(0)
-  user      User     @relation(fields: [userId], references: [id])
+  id       String @id @default(cuid())
+  userId   String @unique
+  xpPoints Int    @default(0)
+  user     User   @relation(fields: [userId], references: [id])
 }
 
 model Course {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String
   imageUrl    String?
@@ -99,52 +104,52 @@ model Course {
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
   courses     Course[]
 }
 
 model Section {
-  id        String    @id @default(cuid())
-  title     String
-  order     Int
-  courseId  String
-  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons   Lesson[]
+  id       String   @id @default(cuid())
+  title    String
+  order    Int
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
 }
 
 model Lesson {
-  id          String      @id @default(cuid())
-  title       String
-  content     String
-  order       Int
-  sectionId   String
-  section     Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  progress    Progress[]
+  id        String     @id @default(cuid())
+  title     String
+  content   String
+  order     Int
+  sectionId String
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress  Progress[]
 }
 
 model Enrollment {
-  id        String      @id @default(cuid())
+  id        String     @id @default(cuid())
   userId    String
   courseId  String
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   progress  Progress[]
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
 }
 
 model Progress {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   enrollmentId String
   lessonId     String
-  completed    Boolean     @default(false)
+  completed    Boolean    @default(false)
   score        Int?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  enrollment   Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  lesson       Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson       Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([enrollmentId, lessonId])
 }
@@ -170,15 +175,15 @@ model UserAchievement {
 }
 
 model AssessmentResult {
-  id          String   @id @default(cuid())
-  userId      String
-  questionId  String
-  correct     Boolean
-  score       Float
-  feedback    String?
-  timestamp   DateTime
-  user        User     @relation(fields: [userId], references: [id])
-  question    Question @relation(fields: [questionId], references: [id])
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  correct    Boolean
+  score      Float
+  feedback   String?
+  timestamp  DateTime
+  user       User     @relation(fields: [userId], references: [id])
+  question   Question @relation(fields: [questionId], references: [id])
 
   @@index([userId])
   @@index([questionId])
@@ -199,73 +204,91 @@ model ScoreCard {
 }
 
 model PerformanceMetrics {
-  id              String   @id @default(cuid())
-  userId          String
-  averageScore    Float
-  improvement     Float
-  strengths       String[]
-  weaknesses      String[]
+  id               String   @id @default(cuid())
+  userId           String
+  averageScore     Float
+  improvement      Float
+  strengths        String[]
+  weaknesses       String[]
   recommendedFocus String[]
-  timestamp       DateTime
-  user            User     @relation(fields: [userId], references: [id])
+  timestamp        DateTime
+  user             User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
 model CurriculumStandard {
   id        String   @id @default(cuid())
-  subject   String   // 'maths' | 'english'
-  keyStage  Int      // 1 | 2 | 3
-  year      Int      // 1-9
+  subject   String // 'maths' | 'english'
+  keyStage  Int // 1 | 2 | 3
+  year      Int // 1-9
   topics    Topic[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model MasteryProgress {
+  id                   String   @id @default(cuid())
+  studentId            String
+  topicId              String
+  consecutiveSuccesses Int      @default(0)
+  lastAttemptDate      DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  student User  @relation(fields: [studentId], references: [id])
+  topic   Topic @relation(fields: [topicId], references: [id])
+
+  @@index([studentId])
+  @@index([topicId])
+}
+
 model Topic {
-  id          String   @id @default(cuid())
-  name        String
-  strand      String?
-  difficulty  Int      // 1-5
-  ageRange    Json     // { min: number, max: number }
-  objectives  LearningObjective[]
-  curriculum  CurriculumStandard @relation(fields: [curriculumId], references: [id])
-  curriculumId String
-  prerequisites Topic[] @relation("TopicPrerequisites")
-  requiredFor   Topic[] @relation("TopicPrerequisites")
-  progress     StudentProgress[]
+  id              String              @id @default(cuid())
+  name            String
+  strand          String?
+  difficulty      Int // 1-5
+  ageRange        Json // { min: number, max: number }
+  objectives      LearningObjective[]
+  curriculum      CurriculumStandard  @relation(fields: [curriculumId], references: [id])
+  curriculumId    String
+  prerequisites   Topic[]             @relation("TopicPrerequisites")
+  requiredFor     Topic[]             @relation("TopicPrerequisites")
+  progress        StudentProgress[]
+  masteryAttempts MasteryAttempt[]
+  masteryProgress MasteryProgress[]
 }
 
 model LearningObjective {
-  id          String   @id @default(cuid())
-  description String
-  examples    String[]
-  topic       Topic    @relation(fields: [topicId], references: [id])
-  topicId     String
-  questionTypes Json    // QuestionType[]
-  learningStyles Json   // LearningStyleMapping
+  id                 String   @id @default(cuid())
+  description        String
+  examples           String[]
+  topic              Topic    @relation(fields: [topicId], references: [id])
+  topicId            String
+  questionTypes      Json // QuestionType[]
+  learningStyles     Json // LearningStyleMapping
   assessmentCriteria String[]
 }
 
 model StudentProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  topicId     String
-  objectiveIds String[]
+  id                 String   @id @default(cuid())
+  userId             String
+  topicId            String
+  objectiveIds       String[]
   currentObjectiveId String?
-  masteryLevel Json    // { [objectiveId: string]: number }
-  assessmentHistory Json[] // Array of assessment results
-  adaptations Json     // Learning style adaptations
-  user        User     @relation(fields: [userId], references: [id])
-  topic       Topic    @relation(fields: [topicId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  masteryLevel       Json // { [objectiveId: string]: number }
+  assessmentHistory  Json[] // Array of assessment results
+  adaptations        Json // Learning style adaptations
+  user               User     @relation(fields: [userId], references: [id])
+  topic              Topic    @relation(fields: [topicId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([userId, topicId])
 }
 
 model LearningProgress {
-  id            String   @id @default(cuid())
+  id            String              @id @default(cuid())
   userId        String
   timestamp     DateTime
   strengths     Json
@@ -277,38 +300,38 @@ model LearningProgress {
 }
 
 model ProgressResult {
-  id         String           @id @default(cuid())
-  progressId String
-  progress   LearningProgress @relation(fields: [progressId], references: [id])
-  questionId    String
-  isCorrect     Boolean
-  timeSpent     Int
-  learningStyle String
-  topicId       String?
-  mistakePatterns Json?  // Array of strings stored as JSON
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id              String           @id @default(cuid())
+  progressId      String
+  progress        LearningProgress @relation(fields: [progressId], references: [id])
+  questionId      String
+  isCorrect       Boolean
+  timeSpent       Int
+  learningStyle   String
+  topicId         String?
+  mistakePatterns Json? // Array of strings stored as JSON
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([progressId])
 }
 
 model LearningAdaptations {
-  id       String             @id @default(cuid())
-  progress LearningProgress[]
-  userId           String
-  preferredStyle   String
-  difficultyLevel  Int
-  pacePreference   String
-  scaffoldingLevel String
-  styleEffectiveness Json    // Record stored as JSON
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id                 String             @id @default(cuid())
+  progress           LearningProgress[]
+  userId             String
+  preferredStyle     String
+  difficultyLevel    Int
+  pacePreference     String
+  scaffoldingLevel   String
+  styleEffectiveness Json // Record stored as JSON
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@index([userId])
 }
 
 model Question {
-  id            String   @id @default(uuid())
+  id            String @id @default(uuid())
   text          String
   correctAnswer String
   difficulty    Int
@@ -318,20 +341,140 @@ model Question {
   // Add any other fields your Question model needs
 
   // Add the reverse relation if needed
-  assessments   AssessmentResult[]
+  assessments AssessmentResult[]
 }
 
 model Assessment {
-  id          String   @id @default(cuid())
-  // ... other fields
+  id                  String               @id @default(cuid())
+  assessmentType      String               // Changed from type to assessmentType
+  status              String
+  currentQuestionIndex Int                 @default(0)
+  score               Int                  @default(0)
+  timeSpent           Int                  @default(0)
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id])
+  questions           AssessmentQuestion[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
-model Submission {
-  id          String   @id @default(cuid())
-  // ... other fields
+model AssessmentQuestion {
+  id            String     @id @default(cuid())
+  assessmentId  String
+  assessment    Assessment @relation(fields: [assessmentId], references: [id])
+  skillId       String // Add this field
+  difficulty    Int // Add this field
+  content       String // Rename from question
+  correctAnswer String // Add this field
+  points        Int // Add this field
+  timeLimit     Int? // Add this field
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
-model Content {
-  id          String   @id @default(cuid())
-  // ... other fields
+model MasteryRecord {
+  id              String           @id @default(cuid())
+  studentId       String
+  student         User             @relation(fields: [studentId], references: [id])
+  skillId         String
+  skill           Skill            @relation(fields: [skillId], references: [id])
+  level           String           @default("NOVICE")
+  masteryAttempts MasteryAttempt[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model MasteryAttempt {
+  id          String        @id @default(cuid())
+  recordId    String // Foreign key
+  record      MasteryRecord    @relation(fields: [recordId], references: [id])
+  score       Int
+  timeSpent   Int
+  errorList   String[]
+  completedAt DateTime
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  User        User?         @relation(fields: [userId], references: [id])
+  userId      String?
+  Topic       Topic?        @relation(fields: [topicId], references: [id])
+  topicId     String?
+}
+
+model Skill {
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  masteryRecords  MasteryRecord[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+enum AssessmentType {
+  PLACEMENT
+  DIAGNOSTIC
+  PROGRESS
+}
+
+enum AssessmentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum SkillLevel {
+  NOVICE
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model PlacementTest {
+  id            String              @id @default(cuid())
+  studentId     String
+  status        PlacementTestStatus @default(NOT_STARTED)
+  startLevel    Int
+  finalLevel    Int?
+  sections      PlacementSection[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  student       User               @relation(fields: [studentId], references: [id])
+}
+
+model PlacementSection {
+  id            String              @id @default(cuid())
+  testId        String
+  level         Int
+  score         Int                @default(0)
+  timeSpent     Int                @default(0)
+  status        PlacementTestStatus @default(NOT_STARTED)
+  questions     PlacementQuestion[]
+  test          PlacementTest      @relation(fields: [testId], references: [id])
+}
+
+model PlacementQuestion {
+  id            String           @id @default(cuid())
+  sectionId     String
+  content       String
+  type          QuestionType
+  correctAnswer String
+  answer        String?
+  timeSpent     Int             @default(0)
+  isCorrect     Boolean?
+  difficulty    Int
+  section       PlacementSection @relation(fields: [sectionId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum PlacementTestStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  NUMERIC
+  TEXT
 }

@@ -1,9 +1,9 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { ErrorMessage } from './ui/ErrorMessage';
 
 interface Props {
-  children: React.ReactNode;
+  children: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -11,37 +11,23 @@ interface State {
   error?: Error;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false };
-  }
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false
+  };
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
-      return (
-        <div className="p-4">
-          <Alert variant="error">
-            <AlertTitle>Something went wrong</AlertTitle>
-            <AlertDescription>
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </AlertDescription>
-            <Button
-              className="mt-4"
-              onClick={() => window.location.reload()}
-            >
-              Reload Page
-            </Button>
-          </Alert>
-        </div>
+      return this.props.fallback || (
+        <ErrorMessage message="Something went wrong" />
       );
     }
 
