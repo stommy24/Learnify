@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  engineType    = "library"
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -43,6 +45,8 @@ model User {
   errorPatterns     ErrorPattern[]
   progress          Progress[]
   achievements      UserAchievement[]
+  questionAnswers   QuestionAnswer[]
+  errorAnalyses     StudentErrorAnalysis[]
 }
 
 model Account {
@@ -221,8 +225,8 @@ model PerformanceMetrics {
 
 model CurriculumStandard {
   id        String   @id @default(cuid())
-  subject   String // 'maths' | 'english'
-  keyStage  Int // 1 | 2 | 3
+  name      String
+  code      String   @unique
   year      Int // 1-9
   topics    Topic[]
   createdAt DateTime @default(now())
@@ -230,63 +234,60 @@ model CurriculumStandard {
 }
 
 model MasteryProgress {
-  id                   String   @id @default(cuid())
-  studentId            String
-  topicId              String
-  consecutiveSuccesses Int      @default(0)
-  lastAttemptDate      DateTime
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id        String   @id @default(cuid())
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  topic     Topic    @relation(fields: [topicId], references: [id])
+  topicId   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 
-  student User  @relation(fields: [studentId], references: [id])
-  topic   Topic @relation(fields: [topicId], references: [id])
-
-  @@index([studentId])
   @@index([topicId])
+  @@index([userId])
 }
 
 model Topic {
-  id              String              @id @default(cuid())
-  name            String
-  strand          String?
-  difficulty      Int // 1-5
-  ageRange        Json // { min: number, max: number }
-  objectives      LearningObjective[]
-  curriculum      CurriculumStandard  @relation(fields: [curriculumId], references: [id])
-  curriculumId    String
-  prerequisites   Topic[]             @relation("TopicPrerequisites")
-  requiredFor     Topic[]             @relation("TopicPrerequisites")
-  progress        StudentProgress[]
-  masteryAttempts MasteryAttempt[]
-  masteryProgress MasteryProgress[]
+  id               String               @id @default(cuid())
+  name             String
+  description      String?
+  difficulty       Int
+  ageRange         Int[]
+  strand           String
+  masteryAttempts  MasteryAttempt[]
+  masteryProgress  MasteryProgress[]
+  curriculumStandards CurriculumStandard[]
+  learningObjectives  LearningObjective[]
+  studentProgress     StudentProgress[]
 }
 
 model LearningObjective {
-  id                 String   @id @default(cuid())
-  description        String
-  examples           String[]
-  topic              Topic    @relation(fields: [topicId], references: [id])
-  topicId            String
-  questionTypes      Json // QuestionType[]
-  learningStyles     Json // LearningStyleMapping
-  assessmentCriteria String[]
+  id                String   @id @default(cuid())
+  name              String
+  description       String
+  prerequisites     String[]
+  examples          String[]
+  topic             Topic    @relation(fields: [topicId], references: [id])
+  topicId           String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([topicId])
 }
 
 model StudentProgress {
-  id                 String   @id @default(cuid())
-  userId             String
-  topicId            String
-  objectiveIds       String[]
-  currentObjectiveId String?
-  masteryLevel       Json // { [objectiveId: string]: number }
-  assessmentHistory  Json[] // Array of assessment results
-  adaptations        Json // Learning style adaptations
-  user               User     @relation(fields: [userId], references: [id])
-  topic              Topic    @relation(fields: [topicId], references: [id])
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  status            String // e.g., "NOT_STARTED", "IN_PROGRESS", "COMPLETED"
+  score             Float?
+  userId            String
+  topicId           String
+  user              User     @relation(fields: [userId], references: [id])
+  topic             Topic    @relation(fields: [topicId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@index([userId, topicId])
+  @@index([userId])
+  @@index([topicId])
 }
 
 model LearningProgress {
@@ -333,22 +334,20 @@ model LearningAdaptations {
 }
 
 model Question {
-  id            String @id @default(uuid())
-  text          String
-  correctAnswer String
-  difficulty    Int
-  subject       String
-  topic         String
-  type          String
-  // Add any other fields your Question model needs
-
-  // Add the reverse relation if needed
-  assessments AssessmentResult[]
+  id              String           @id @default(uuid())
+  text            String
+  correctAnswer   String
+  difficulty      Int
+  subject         String
+  topic           String
+  type            String
+  assessments     AssessmentResult[]
+  answers         QuestionAnswer[]
 }
 
 model Assessment {
   id                  String               @id @default(cuid())
-  assessmentType      String               // Changed from type to assessmentType
+  assessmentType      String               
   status              String
   currentQuestionIndex Int                 @default(0)
   score               Int                  @default(0)
@@ -356,6 +355,7 @@ model Assessment {
   userId              String
   user                User                 @relation(fields: [userId], references: [id])
   questions           AssessmentQuestion[]
+  submissions         Submission[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -482,12 +482,12 @@ enum QuestionType {
 }
 
 model ErrorPattern {
-  id             String   @id @default(cuid())
-  userId         String
-  patternType    String
-  frequency      Int
-  lastOccurrence DateTime
-  user           User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(cuid())
+  errorList String[]
+  timestamp DateTime @default(now())
+  timeframe String   @default("default")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -513,4 +513,62 @@ model QuestionValidation {
   type        String
   difficulty  Float
   validatedAt DateTime @default(now())
+}
+
+model ConceptMastery {
+  id         String   @id @default(cuid())
+  studentId  String
+  conceptId  String
+  metrics    Json
+  achieved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([studentId, conceptId])
+}
+
+model QuestionAnswer {
+  id           String   @id @default(cuid())
+  studentId    String
+  questionId   String
+  answer       String
+  correct      Boolean
+  createdAt    DateTime @default(now())
+  question     Question @relation(fields: [questionId], references: [id])
+  student      User     @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@index([questionId])
+}
+
+model Content {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // e.g., 'video', 'article', 'exercise'
+  data        Json     // Flexible content storage
+  metadata    Json?    // Optional metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+} 
+
+model StudentErrorAnalysis {  // Make sure this is exactly as shown
+  id         String   @id @default(cuid())
+  studentId  String
+  patterns   Json     // Changed from Json[] to Json
+  analyzedAt DateTime @default(now())
+  student    User     @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+}
+
+model Submission {
+  id            String     @id @default(cuid())
+  assessmentId  String
+  assessment    Assessment @relation(fields: [assessmentId], references: [id])
+  answers       Json       
+  score         Float
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([assessmentId])
 }

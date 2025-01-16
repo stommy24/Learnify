@@ -53,7 +53,7 @@ export default function PracticeComponent({
   };
 
   const question = questions[currentQuestion];
-  const isCorrect = answers[currentQuestion] === question.correctAnswer;
+  const isCorrect = question ? answers[currentQuestion] === question.correctAnswer : false;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">

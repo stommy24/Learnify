@@ -1,5 +1,6 @@
-import { prisma } from '@/lib/db';
+import prisma from '@/lib/db';
 import { logger } from '@/lib/monitoring';
+import { Prisma } from '@prisma/client';
 
 interface MasteryMetrics {
   accuracy: number;
@@ -33,16 +34,10 @@ export class MasteryTracker {
     }
   ): Promise<void> {
     try {
-      // Get current mastery metrics
       const currentMetrics = await this.getMasteryMetrics(studentId, conceptId);
-      
-      // Update metrics
       const updatedMetrics = this.calculateNewMetrics(currentMetrics, performance);
-      
-      // Check for mastery achievement
       const hasMastered = this.checkMastery(updatedMetrics);
 
-      // Update database
       await prisma.conceptMastery.upsert({
         where: {
           studentId_conceptId: {
@@ -51,14 +46,14 @@ export class MasteryTracker {
           }
         },
         update: {
-          metrics: updatedMetrics,
+          metrics: updatedMetrics as unknown as Prisma.InputJsonValue,
           achieved: hasMastered,
           updatedAt: new Date()
         },
         create: {
           studentId,
           conceptId,
-          metrics: updatedMetrics,
+          metrics: updatedMetrics as unknown as Prisma.InputJsonValue,
           achieved: hasMastered
         }
       });
@@ -69,12 +64,9 @@ export class MasteryTracker {
         metrics: updatedMetrics,
         mastered: hasMastered
       });
-    } catch (error) {
-      logger.error('Failed to update mastery progress', {
-        studentId,
-        conceptId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+    } catch (err) {
+      const error = new Error(`Error updating mastery for student ${studentId}, concept ${conceptId}`);
+      logger.error(error, error);
       throw error;
     }
   }
@@ -92,7 +84,7 @@ export class MasteryTracker {
       }
     });
 
-    return record?.metrics || {
+    return (record?.metrics as unknown as MasteryMetrics) || {
       accuracy: 0,
       speed: 0,
       consistency: 0,
@@ -141,5 +133,9 @@ export class MasteryTracker {
       metrics.consistency >= thresholds.consistencyThreshold &&
       metrics.repetitions >= thresholds.requiredRepetitions
     );
+  }
+
+  public async getMetricsForDifficulty(studentId: string, conceptId: string) {
+    return this.getMasteryMetrics(studentId, conceptId);
   }
 } 

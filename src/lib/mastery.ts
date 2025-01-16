@@ -1,60 +1,65 @@
-import { prisma } from '@/lib/prisma';
-import { MasteryProgress, MasteryAttempt, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
-interface MasteryAttemptInput {
+export interface MasteryProgress {
+  id: string;
   studentId: string;
-  skillId: string;
+  topicId: string;
+  consecutiveSuccesses: number;
+  lastAttemptDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MasteryAttemptInput {
+  userId: string;
   score: number;
   timeSpent: number;
-  completedAt: Date;
 }
 
 export class MasterySystem {
-  constructor(private readonly prisma: PrismaClient = prisma) {}
+  private prisma: PrismaClient;
 
-  async submitAttempt(attempt: MasteryAttemptInput): Promise<MasteryProgress> {
-    const record = await this.prisma.masteryRecord.findFirst({
-      where: {
-        studentId: attempt.studentId,
-        skillId: attempt.skillId
-      },
-      include: {
-        masteryAttempts: true
-      }
-    });
-
-    return {
-      id: record?.id || '',
-      studentId: attempt.studentId,
-      topicId: attempt.skillId,
-      consecutiveSuccesses: record?.masteryAttempts?.length || 0,
-      lastAttemptDate: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+  constructor(prismaClient?: PrismaClient) {
+    if (!prismaClient) {
+      this.prisma = new PrismaClient();
+    } else {
+      this.prisma = prismaClient;
+    }
   }
 
-  async getStudentProgress(studentId: string, skillId: string): Promise<MasteryProgress | null> {
-    const record = await this.prisma.masteryRecord.findFirst({
+  async submitAttempt(attempt: MasteryAttemptInput): Promise<MasteryProgress> {
+    const { userId, score, timeSpent } = attempt;
+
+    // Find or create mastery progress
+    const progress = await this.prisma.masteryProgress.upsert({
       where: {
-        studentId,
-        skillId
+        id: userId // Using userId as the unique identifier
       },
-      include: {
-        masteryAttempts: true
+      create: {
+        id: userId,
+        studentId: userId,
+        topicId: 'default', // You might want to make this configurable
+        consecutiveSuccesses: score >= 80 ? 1 : 0,
+        lastAttemptDate: new Date()
+      },
+      update: {
+        consecutiveSuccesses: score >= 80 ? {
+          increment: 1
+        } : {
+          set: 0
+        },
+        lastAttemptDate: new Date()
       }
     });
 
-    if (!record) return null;
-
     return {
-      id: record.id,
-      studentId: record.studentId,
-      topicId: record.skillId,
-      consecutiveSuccesses: record.masteryAttempts.length,
-      lastAttemptDate: new Date(),
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt
+      id: progress.id,
+      studentId: progress.studentId,
+      topicId: progress.topicId,
+      consecutiveSuccesses: progress.consecutiveSuccesses,
+      lastAttemptDate: progress.lastAttemptDate,
+      createdAt: progress.createdAt,
+      updatedAt: progress.updatedAt
     };
   }
 }

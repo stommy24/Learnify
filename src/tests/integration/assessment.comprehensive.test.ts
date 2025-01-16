@@ -4,7 +4,7 @@ import { QuestionGenerator, LearningStyle } from '@/lib/assessment/generator';
 import { ScaffoldingSystem } from '@/lib/assessment/scaffolding';
 import { AssessmentCriteria } from '@/lib/assessment/criteria';
 import { QuestionOptimizer } from '@/lib/assessment/optimizer';
-import { CurriculumTopic } from '@/types/curriculum';
+import { Topic } from '@prisma/client';
 
 describe('Comprehensive Assessment System Testing', () => {
   let parser: CurriculumParser;
@@ -13,14 +13,14 @@ describe('Comprehensive Assessment System Testing', () => {
   let criteria: AssessmentCriteria;
   let optimizer: QuestionOptimizer;
 
-  const mockTopic: CurriculumTopic = {
+  const mockTopic: Topic = {
     id: '1',
-    name: 'Algebra',
-    standards: [],
-    prerequisites: [],
+    name: 'Test Topic',
+    description: null,
     difficulty: 1,
     ageRange: [10, 12],
-    strand: 'mathematics'
+    strand: 'Math',
+    // Add any other required fields from your Topic model
   };
 
   beforeAll(() => {

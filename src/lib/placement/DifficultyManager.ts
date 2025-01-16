@@ -50,7 +50,7 @@ export class DifficultyManager {
       adjustment = this.decreaseDifficulty(currentLevel, 'Time threshold exceeded', 0.3);
     } 
     else if (this.consecutiveCorrect >= DIFFICULTY_RULES.INCREASE_THRESHOLD) {
-      const masteryMetrics = await this.masteryTracker.getMasteryMetrics(studentId, conceptId);
+      const masteryMetrics = await this.masteryTracker.getMetricsForDifficulty(studentId, conceptId);
       
       // Only increase difficulty if showing mastery
       if (masteryMetrics.consistency >= 0.85) {

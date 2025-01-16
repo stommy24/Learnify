@@ -1,28 +1,71 @@
 import { v4 as uuidv4 } from 'uuid';
-import { LearningProgress, AssessmentResult } from '@/types/learning';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+// Define types that match your schema
+export interface AssessmentResult {
+  topicId: string;
+  score: number;
+  timestamp: Date;
+}
+
+export interface LearningProgressData {
+  results: AssessmentResult[];
+  strengths: Record<string, number>;
+  weaknesses: Record<string, number>;
+  adaptations: Record<string, any>;
+}
 
 export class ProgressionService {
-  async getCurrentProgress(userId: string, topicId?: string): Promise<LearningProgress> {
+  async getCurrentProgress(userId: string, topicId?: string) {
     const progress = await prisma.learningProgress.findFirst({
       where: { userId }
     });
 
     if (!progress) {
+      // Create initial progress data matching schema
+      const initialData: LearningProgressData = {
+        results: [],
+        strengths: {},
+        weaknesses: {},
+        adaptations: {}
+      };
+
       return {
         id: uuidv4(),
         userId,
         timestamp: new Date(),
-        results: [],
+        ...initialData
       };
     }
-    return progress;
+
+    // Safely parse JSON fields from database
+    const parsedResults = this.parseJsonField<AssessmentResult[]>(progress.results, []);
+    const parsedStrengths = this.parseJsonField<Record<string, number>>(progress.strengths, {});
+    const parsedWeaknesses = this.parseJsonField<Record<string, number>>(progress.weaknesses, {});
+    const parsedAdaptations = this.parseJsonField<Record<string, any>>(progress.adaptations, {});
+
+    return {
+      ...progress,
+      results: parsedResults,
+      strengths: parsedStrengths,
+      weaknesses: parsedWeaknesses,
+      adaptations: parsedAdaptations
+    };
   }
 
-  async updateProgress(
-    userId: string,
-    results: AssessmentResult[]
-  ): Promise<LearningProgress> {
+  private parseJsonField<T>(field: any, defaultValue: T): T {
+    try {
+      if (typeof field === 'string') {
+        return JSON.parse(field);
+      }
+      return field as T;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  async updateProgress(userId: string, results: AssessmentResult[]) {
     const existingProgress = await this.getCurrentProgress(userId);
 
     const resultsByTopic = results.reduce((acc, result) => {
@@ -43,34 +86,47 @@ export class ProgressionService {
       };
     });
 
-    const updatedProgress: LearningProgress = {
+    // Calculate strengths and weaknesses based on results
+    const { strengths, weaknesses } = this.analyzeResults(averagedResults);
+
+    const updatedProgress = {
       ...existingProgress,
       userId,
       timestamp: new Date(),
-      results: [...existingProgress.results, ...averagedResults],
+      results: JSON.stringify([...existingProgress.results, ...averagedResults]),
+      strengths: JSON.stringify(strengths),
+      weaknesses: JSON.stringify(weaknesses),
+      adaptations: JSON.stringify(existingProgress.adaptations || {})
     };
 
     await this.saveProgress(updatedProgress);
-    return updatedProgress;
+    
+    // Return parsed data
+    return {
+      ...updatedProgress,
+      results: this.parseJsonField<AssessmentResult[]>(updatedProgress.results, []),
+      strengths: this.parseJsonField<Record<string, number>>(updatedProgress.strengths, {}),
+      weaknesses: this.parseJsonField<Record<string, number>>(updatedProgress.weaknesses, {}),
+      adaptations: this.parseJsonField<Record<string, any>>(updatedProgress.adaptations, {})
+    };
   }
 
-  private calculateMasteryLevels(
-    results: AssessmentResult[],
-    existingLevels: { [key: string]: number }
-  ): { [key: string]: number } {
-    const levels = { ...existingLevels };
-    
+  private analyzeResults(results: AssessmentResult[]) {
+    const strengths: Record<string, number> = {};
+    const weaknesses: Record<string, number> = {};
+
     results.forEach(result => {
-      if (!result.topicId) return;
-      
-      const currentLevel = levels[result.topicId] || 0;
-      levels[result.topicId] = Math.min(100, currentLevel + result.score);
+      if (result.score >= 0.7) {
+        strengths[result.topicId] = result.score;
+      } else {
+        weaknesses[result.topicId] = result.score;
+      }
     });
 
-    return levels;
+    return { strengths, weaknesses };
   }
 
-  private async saveProgress(progress: LearningProgress): Promise<void> {
+  private async saveProgress(progress: any) {
     await prisma.learningProgress.upsert({
       where: { id: progress.id },
       update: progress,
@@ -78,23 +134,30 @@ export class ProgressionService {
     });
   }
 
-  async getAllProgress(): Promise<{ [objectiveId: string]: number }> {
-    // This method is used in tests - returns masteryLevel directly
+  async getAllProgress(): Promise<Record<string, number>> {
     const progress = await prisma.learningProgress.findFirst();
-    return progress?.masteryLevel ?? {};
+    if (!progress) return {};
+    
+    const results = this.parseJsonField<AssessmentResult[]>(progress.results, []);
+    return results.reduce((acc, result) => {
+      acc[result.topicId] = result.score;
+      return acc;
+    }, {} as Record<string, number>);
   }
 
-  createProgress(): LearningProgress {
-    const progress = {
+  createProgress(): LearningProgressData & { id: string; userId: string; timestamp: Date } {
+    const initialData: LearningProgressData = {
+      results: [],
+      strengths: {},
+      weaknesses: {},
+      adaptations: {}
+    };
+
+    return {
       id: 'test-id',
       userId: 'test-user',
       timestamp: new Date(),
-      strengths: {},
-      weaknesses: {},
-      adaptationsId: 'test-adaptation',
-      results: [],
-      masteryLevel: {}
+      ...initialData
     };
-    return progress;
   }
 } 

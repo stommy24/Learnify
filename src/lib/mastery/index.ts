@@ -1,3 +1,5 @@
+import { PrismaClient } from '@prisma/client';
 import { StudentErrorTracker } from './StudentErrorTracker';
 
-export const errorTracker = new StudentErrorTracker(); 
+const prisma = new PrismaClient();
+export const errorTracker = new StudentErrorTracker(prisma); 

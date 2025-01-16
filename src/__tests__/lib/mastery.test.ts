@@ -1,41 +1,69 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { MasterySystem, MasteryAttemptInput, MasteryProgress } from '@/lib/mastery';
 import { PrismaClient } from '@prisma/client';
-import { mockDeep } from 'jest-mock-extended';
-import { MasterySystem } from '@/lib/mastery';
-import { 
-  MasteryAttempt,
-  MasteryProgress,
-  MasteryLevel 
-} from '@/types/mastery';
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
+
+// Create a mock type for PrismaClient
+let prisma: DeepMockProxy<PrismaClient>;
 
 describe('MasterySystem', () => {
-  const mockPrisma = mockDeep<PrismaClient>();
   let masterySystem: MasterySystem;
 
-  const mockAttempt: MasteryAttempt = {
-    id: '1',
-    studentId: '123',
-    skillId: '456',
-    score: 85,
-    timeSpent: 300,
-    errors: ['error1', 'error2'],
-    completedAt: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-
-  const mockProgress: MasteryProgress = {
-    id: '1',
-    studentId: '123',
-    skillId: '456',
-    currentLevel: 'NOVICE' as MasteryLevel,
-    consecutiveSuccesses: 0,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-
   beforeEach(() => {
-    masterySystem = new MasterySystem(mockPrisma);
+    // Create a fresh mock for each test
+    prisma = mockDeep<PrismaClient>();
+    masterySystem = new MasterySystem(prisma);
   });
 
-  // ... rest of test implementation
+  describe('submitAttempt', () => {
+    it('should process a successful attempt', async () => {
+      const attempt: MasteryAttemptInput = {
+        userId: 'user123',
+        score: 85,
+        timeSpent: 300
+      };
+
+      const expectedProgress: MasteryProgress = {
+        id: 'progress123',
+        studentId: 'user123',
+        topicId: 'default',
+        consecutiveSuccesses: 1,
+        lastAttemptDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Setup the mock with proper typing
+      prisma.masteryProgress.upsert.mockResolvedValueOnce(expectedProgress);
+
+      const result = await masterySystem.submitAttempt(attempt);
+      expect(result.consecutiveSuccesses).toBe(1);
+      expect(result.studentId).toBe('user123');
+    });
+
+    it('should handle consecutive successes', async () => {
+      const attempt: MasteryAttemptInput = {
+        userId: 'user123',
+        score: 90,
+        timeSpent: 250
+      };
+
+      const mockProgress: MasteryProgress = {
+        id: 'progress123',
+        studentId: 'user123',
+        topicId: 'default',
+        consecutiveSuccesses: 2,
+        lastAttemptDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Setup the mock with proper typing
+      prisma.masteryProgress.upsert.mockResolvedValueOnce(mockProgress);
+
+      const result = await masterySystem.submitAttempt(attempt);
+      expect(result.consecutiveSuccesses).toBe(2);
+      expect(result.studentId).toBe('user123');
+    });
+  });
 }); 

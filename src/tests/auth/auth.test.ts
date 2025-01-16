@@ -3,8 +3,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcrypt';
-import { UserRole } from '@/types/prisma';
+import { PrismaClient } from '@prisma/client';
 import { mockPrisma } from '../mocks/prisma';
+
+// Define UserRole enum since it's not being imported correctly
+enum UserRole {
+  student = 'STUDENT',
+  teacher = 'TEACHER',
+  admin = 'ADMIN'
+}
 
 interface TestUser {
   id: string;

@@ -1,22 +1,15 @@
-import prisma from '@/lib/db';
-import { Concept } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Subject } from '@prisma/client';
 
-export class CurriculumService {
-  async getConceptsBySubject(subjectId: string): Promise<Concept[]> {
-    return await prisma.concept.findMany({
-      where: { subjectId }
-    });
-  }
+const prisma = new PrismaClient();
 
-  async getPrerequisites(conceptId: string): Promise<Concept[]> {
-    return await prisma.concept.findMany({
-      where: {
-        prerequisites: {
-          some: {
-            id: conceptId
-          }
-        }
-      }
-    });
-  }
+// Use subject instead of concept
+export async function getSubjects() {
+  return prisma.subject.findMany();
+}
+
+export async function getSubjectById(id: string) {
+  return prisma.subject.findUnique({
+    where: { id }
+  });
 } 

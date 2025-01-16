@@ -1,16 +1,12 @@
+import { QuestionFormat } from './question';
+
 export enum PlacementTestStatus {
   NOT_STARTED = 'NOT_STARTED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED'
 }
 
-export enum QuestionType {
-  MULTIPLE_CHOICE = 'multiple-choice',
-  TEXT = 'text',
-  NUMERIC = 'numeric',
-  DRAWING = 'drawing',
-  EQUATION = 'equation'
-}
+export type QuestionType = QuestionFormat;
 
 export enum AssessmentType {
   PLACEMENT = 'placement',

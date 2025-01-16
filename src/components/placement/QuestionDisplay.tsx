@@ -1,28 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, QuestionFormat } from '@/types/assessment';
 import { DrawingCanvas } from '../assessment/inputs/DrawingCanvas';
 import { TextField, RadioGroup, FormControlLabel, Radio } from '@mui/material';
+import { PlacementQuestion } from '@/types/placement';
+import { QuestionFormat } from '@/types/question';
 
 interface QuestionDisplayProps {
-  question: Question;
-  onAnswer: (answer: string | number) => void;
+  question: PlacementQuestion;
+  onSubmit: (answer: string) => Promise<void>;
+  timeStarted: number;
+  currentQuestion: number;
+  totalQuestions: number;
 }
 
 export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   question,
-  onAnswer,
+  onSubmit,
+  timeStarted,
+  currentQuestion,
+  totalQuestions,
 }) => {
   const [answer, setAnswer] = useState<string>('');
 
   const handleAnswerChange = (value: string) => {
     setAnswer(value);
-    if (question.type === QuestionFormat.NUMERIC) {
-      onAnswer(parseFloat(value));
-    } else {
-      onAnswer(value);
-    }
+    onSubmit(value);
   };
 
   const renderAnswerInput = () => {
@@ -33,7 +36,7 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
             value={answer}
             onChange={(e) => handleAnswerChange(e.target.value)}
           >
-            {question.options?.map((option, index) => (
+            {question.options?.map((option: string, index: number) => (
               <FormControlLabel
                 key={index}
                 value={option}

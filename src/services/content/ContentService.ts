@@ -1,26 +1,24 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
-interface Content {
-  id?: string;
-  title: string;
-  description: string;
-  type: string;
-}
-
+// Update interface to match your schema exactly
 interface ContentInput {
   title: string;
-  description: string;
   type: string;
+  data: Prisma.InputJsonValue;
+  metadata?: Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue;
 }
 
 export class ContentService {
   constructor(private prisma: PrismaClient) {}
 
-  async createContent(content: ContentInput): Promise<Content> {
+  async createContent(input: ContentInput) {
     try {
       const createdContent = await this.prisma.content.create({
         data: {
-          ...content,
+          title: input.title,
+          type: input.type,
+          data: input.data,
+          metadata: input.metadata ?? Prisma.JsonNull,
           createdAt: new Date(),
           updatedAt: new Date()
         }

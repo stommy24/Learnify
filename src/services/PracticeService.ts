@@ -1,7 +1,8 @@
-import { prisma } from '@/lib/db';
+import prisma from '@/lib/db';
 import { logger } from '@/lib/monitoring';
+import type { Question, Progress, Session } from '@prisma/client';
 
-interface PracticeQuestion {
+export interface PracticeQuestion {
   id: string;
   content: string;
   type: 'multiple-choice' | 'numeric' | 'text';
@@ -9,16 +10,16 @@ interface PracticeQuestion {
   correctAnswer: string;
   hint?: string;
   difficulty: number;
-  conceptId: string;
+  topicId: string;
 }
 
-interface PracticeSession {
+export interface PracticeSession {
   id: string;
   userId: string;
   topicId: string;
   questions: PracticeQuestion[];
-  startedAt: Date;
-  completedAt?: Date;
+  startTime: Date;
+  endTime?: Date;
   results?: {
     correct: number;
     total: number;
@@ -27,44 +28,50 @@ interface PracticeSession {
 }
 
 export class PracticeService {
-  async generatePracticeSession(
+  static async generatePracticeSession(
     userId: string,
     topicId: string,
     difficulty: number
   ): Promise<PracticeSession> {
     try {
-      // Get appropriate questions based on topic and difficulty
-      const questions = await this.getQuestions(topicId, difficulty);
+      const questions = await PracticeService.getQuestions(topicId, difficulty);
 
-      // Create practice session
-      const session = await prisma.practiceSession.create({
+      const assessment = await prisma.assessment.create({
         data: {
           userId,
-          topicId,
-          questions,
-          startedAt: new Date(),
-          status: 'IN_PROGRESS'
+          assessmentType: 'PRACTICE',
+          status: 'IN_PROGRESS',
+          questions: {
+            create: questions.map((q, index) => ({
+              content: q.content,
+              correctAnswer: q.correctAnswer,
+              difficulty: q.difficulty,
+              skillId: q.topicId,
+              points: 1,
+              timeLimit: 300
+            }))
+          }
+        },
+        include: {
+          questions: true
         }
       });
 
       return {
-        id: session.id,
+        id: assessment.id,
         userId,
         topicId,
         questions,
-        startedAt: session.startedAt
+        startTime: assessment.createdAt
       };
     } catch (error) {
-      logger.error('Failed to generate practice session', {
-        userId,
-        topicId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
+      const err = error instanceof Error ? error : new Error('Failed to generate practice session');
+      logger.error(err, { userId, topicId, difficulty });
+      throw err;
     }
   }
 
-  async submitPracticeResults(
+  static async submitPracticeResults(
     sessionId: string,
     results: {
       answers: { questionId: string; answer: string; timeSpent: number }[];
@@ -72,122 +79,134 @@ export class PracticeService {
     }
   ): Promise<void> {
     try {
-      const session = await prisma.practiceSession.findUnique({
+      const assessment = await prisma.assessment.findUnique({
         where: { id: sessionId },
         include: { questions: true }
       });
 
-      if (!session) {
-        throw new Error('Practice session not found');
+      if (!assessment) {
+        const err = new Error('Practice session not found');
+        logger.error(err, { sessionId });
+        throw err;
       }
 
       // Calculate results
       const correct = results.answers.filter(answer => {
-        const question = session.questions.find(q => q.id === answer.questionId);
+        const question = assessment.questions.find(q => q.id === answer.questionId);
         return question?.correctAnswer === answer.answer;
       }).length;
 
-      // Update session
-      await prisma.practiceSession.update({
+      // Update assessment
+      await prisma.assessment.update({
         where: { id: sessionId },
         data: {
-          completedAt: new Date(),
           status: 'COMPLETED',
-          results: {
-            correct,
-            total: session.questions.length,
-            timeSpent: results.totalTimeSpent
-          }
+          score: correct,
+          timeSpent: results.totalTimeSpent
         }
       });
 
       // Record individual answers
-      await prisma.practiceAnswer.createMany({
+      await prisma.questionAnswer.createMany({
         data: results.answers.map(answer => ({
-          sessionId,
+          studentId: assessment.userId,
           questionId: answer.questionId,
           answer: answer.answer,
-          timeSpent: answer.timeSpent,
-          isCorrect: session.questions.find(
+          correct: assessment.questions.find(
             q => q.id === answer.questionId
           )?.correctAnswer === answer.answer
         }))
       });
 
-      // Update user progress
-      await this.updateUserProgress(session.userId, session.topicId, {
+      // Update progress
+      await PracticeService.updateProgress(assessment.userId, assessment.id, {
         correct,
-        total: session.questions.length,
+        total: assessment.questions.length,
         timeSpent: results.totalTimeSpent
       });
     } catch (error) {
-      logger.error('Failed to submit practice results', {
-        sessionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
+      const err = error instanceof Error ? error : new Error('Failed to submit practice results');
+      logger.error(err, { sessionId });
+      throw err;
     }
   }
 
-  private async getQuestions(
+  private static async getQuestions(
     topicId: string,
     difficulty: number
   ): Promise<PracticeQuestion[]> {
-    // Get questions from database based on topic and difficulty
-    const questions = await prisma.question.findMany({
-      where: {
-        topicId,
-        difficulty: {
-          gte: difficulty - 1,
-          lte: difficulty + 1
+    try {
+      const questions = await prisma.question.findMany({
+        where: {
+          topic: topicId,
+          difficulty: {
+            gte: difficulty - 1,
+            lte: difficulty + 1
+          }
+        },
+        take: 10,
+        orderBy: {
+          difficulty: 'asc'
         }
-      },
-      take: 10,
-      orderBy: {
-        difficulty: 'asc'
-      }
-    });
+      });
 
-    return questions.map(q => ({
-      id: q.id,
-      content: q.content,
-      type: q.type as 'multiple-choice' | 'numeric' | 'text',
-      options: q.options as string[],
-      correctAnswer: q.correctAnswer,
-      hint: q.hint,
-      difficulty: q.difficulty,
-      conceptId: q.conceptId
-    }));
+      return questions.map(q => ({
+        id: q.id,
+        content: q.text,
+        type: q.type.toLowerCase() as 'multiple-choice' | 'numeric' | 'text',
+        correctAnswer: q.correctAnswer,
+        difficulty: q.difficulty,
+        topicId: q.topic
+      }));
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Failed to get questions');
+      logger.error(err, { topicId, difficulty });
+      throw err;
+    }
   }
 
-  private async updateUserProgress(
+  private static async updateProgress(
     userId: string,
     topicId: string,
     results: { correct: number; total: number; timeSpent: number }
   ): Promise<void> {
-    const progress = await prisma.userProgress.upsert({
-      where: {
-        userId_topicId: {
+    try {
+      await prisma.progress.upsert({
+        where: {
+          userId_subjectId: {
+            userId,
+            subjectId: topicId
+          }
+        },
+        update: {
+          currentLevel: {
+            increment: results.correct > (results.total / 2) ? 1 : 0
+          },
+          metrics: {
+            set: {
+              totalAttempts: { increment: 1 },
+              totalCorrect: { increment: results.correct },
+              totalQuestions: { increment: results.total },
+              totalTimeSpent: { increment: results.timeSpent }
+            }
+          }
+        },
+        create: {
           userId,
-          topicId
+          subjectId: topicId,
+          currentLevel: 1,
+          metrics: {
+            totalAttempts: 1,
+            totalCorrect: results.correct,
+            totalQuestions: results.total,
+            totalTimeSpent: results.timeSpent
+          }
         }
-      },
-      update: {
-        totalAttempts: { increment: 1 },
-        totalCorrect: { increment: results.correct },
-        totalQuestions: { increment: results.total },
-        totalTimeSpent: { increment: results.timeSpent },
-        lastAttemptAt: new Date()
-      },
-      create: {
-        userId,
-        topicId,
-        totalAttempts: 1,
-        totalCorrect: results.correct,
-        totalQuestions: results.total,
-        totalTimeSpent: results.timeSpent,
-        lastAttemptAt: new Date()
-      }
-    });
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Failed to update progress');
+      logger.error(err, { userId, topicId, results });
+      throw err;
+    }
   }
 } 

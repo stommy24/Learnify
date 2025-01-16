@@ -102,4 +102,12 @@ export class Logger {
       context
     });
   }
+
+  info(message: string, meta?: any): void {
+    // Implementation
+  }
+  
+  error(message: string, error: Error): void {
+    // Implementation
+  }
 } 

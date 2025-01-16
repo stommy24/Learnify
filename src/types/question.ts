@@ -1,4 +1,10 @@
 export type QuestionType = 'TEXT' | 'MULTIPLE_CHOICE' | 'NUMERIC';
+export enum QuestionFormat {
+  MULTIPLE_CHOICE = 'multiple-choice',
+  TEXT_INPUT = 'text',
+  NUMERIC = 'numeric',
+  DRAWING = 'drawing'
+}
 
 export interface Question {
   id: string;
