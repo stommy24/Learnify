@@ -23,12 +23,11 @@ describe('MasterySystem', () => {
         timeSpent: 300
       };
 
-      const expectedProgress: MasteryProgress = {
-        id: 'progress123',
-        studentId: 'user123',
-        topicId: 'default',
-        consecutiveSuccesses: 1,
-        lastAttemptDate: new Date(),
+      const expectedProgress = {
+        id: '1',
+        userId: 'test-user',
+        topicId: 'test-topic',
+        score: 0,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -48,12 +47,11 @@ describe('MasterySystem', () => {
         timeSpent: 250
       };
 
-      const mockProgress: MasteryProgress = {
-        id: 'progress123',
-        studentId: 'user123',
-        topicId: 'default',
-        consecutiveSuccesses: 2,
-        lastAttemptDate: new Date(),
+      const mockProgress = {
+        id: '2',
+        userId: 'test-user',
+        topicId: 'test-topic',
+        score: 50,
         createdAt: new Date(),
         updatedAt: new Date()
       };

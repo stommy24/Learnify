@@ -1,23 +1,28 @@
 import { useState } from 'react';
-import { MasteryAttempt, MasteryProgress } from '@/types/mastery';
+import { MasteryProgress } from '@/types/mastery';
 
-interface UseMasteryProps {
-  studentId: string;
-  skillId: string;
+interface MasteryAttempt {
+  topicId: string;
+  correct: boolean;
+  timestamp: Date;
 }
 
-export function useMastery({ studentId, skillId }: UseMasteryProps) {
+export function useMastery(topicId: string) {
   const [progress, setProgress] = useState<MasteryProgress | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [score, setScore] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submitAttempt = async (attempt: Omit<MasteryAttempt, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const submitAttempt = async (data: MasteryAttempt) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await fetch('/api/mastery/attempt', {
+      const response = await fetch('/api/mastery/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(attempt),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -25,37 +30,20 @@ export function useMastery({ studentId, skillId }: UseMasteryProps) {
       }
 
       const result = await response.json();
-      setProgress(result);
+      setProgress(result.progress);
+      setScore(result.score);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchProgress = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/mastery/progress/${studentId}/${skillId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch progress');
-      }
-
-      const result = await response.json();
-      setProgress(result);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
-    } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return {
     progress,
-    loading,
+    score,
+    isLoading,
     error,
     submitAttempt,
-    fetchProgress,
   };
 } 

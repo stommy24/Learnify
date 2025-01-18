@@ -1,3 +1,13 @@
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  type: string;
+  xpReward: number;
+  earnedAt?: Date | null;
+}
+
 export interface DashboardMetrics {
   progress: {
     currentLevel: number;
@@ -5,31 +15,15 @@ export interface DashboardMetrics {
     totalTopics: number;
     masteryPercentage: number;
   };
-  performance: {
-    accuracy: number;
-    averageSpeed: number;
-    streak: number;
-    lastActive: Date;
-  };
-  currentTopic: {
-    id: string;
-    name: string;
-    progress: number;
-    nextMilestone: string;
-  };
   achievements: {
     recent: Achievement[];
     total: number;
   };
-}
-
-export interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  earnedAt: Date;
-  type: 'MASTERY' | 'STREAK' | 'SPEED' | 'MILESTONE';
-  icon: string;
+  recentAnswers: any[];
+  streak: {
+    current: number;
+    longest: number;
+  };
 }
 
 export interface LearningModule {

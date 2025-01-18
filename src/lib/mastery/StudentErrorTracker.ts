@@ -1,21 +1,20 @@
 import { PrismaClient } from '@prisma/client';
 
-interface ErrorData {
+export interface ErrorData {
   userId: string;
   errors: string[];
-  timeframe: 'daily' | 'weekly' | 'monthly';
+  timestamp: Date;
 }
 
 export class StudentErrorTracker {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async trackErrors(data: ErrorData) {
-    await this.prisma.errorPattern.create({
+    return await this.prisma.errorPattern.create({
       data: {
         userId: data.userId,
         errorList: data.errors,
-        timeframe: data.timeframe,
-        timestamp: new Date()
+        timestamp: data.timestamp
       }
     });
   }

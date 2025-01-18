@@ -1,126 +1,148 @@
-import { prisma } from '@/lib/db';
-import { DashboardMetrics, Achievement } from '@/types/dashboard';
+import { prisma } from '@/lib/prisma';
+import { Prisma, Achievement as PrismaAchievement, UserAchievement } from '@prisma/client';
+import type { DashboardMetrics, Achievement } from '@/types/dashboard';
 
 export class DashboardService {
   async getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
-    try {
-      const [
-        progress,
-        performance,
-        currentTopic,
-        achievements
-      ] = await Promise.all([
-        this.getProgressMetrics(userId),
-        this.getPerformanceMetrics(userId),
-        this.getCurrentTopic(userId),
-        this.getAchievements(userId)
-      ]);
+    const [
+      recentAchievements,
+      totalAchievements,
+      progressStats,
+      recentAnswers,
+      learningStreak
+    ] = await Promise.all([
+      this.getRecentAchievements(userId),
+      this.getTotalAchievements(userId),
+      this.calculateProgress(userId),
+      this.getRecentAnswers(userId),
+      this.getLearningStreak(userId)
+    ]);
 
-      return {
-        progress,
-        performance,
-        currentTopic,
-        achievements
-      };
-    } catch (error) {
-      console.error('Failed to fetch dashboard metrics:', error);
-      throw error;
-    }
+    return {
+      achievements: {
+        recent: recentAchievements,
+        total: totalAchievements
+      },
+      progress: progressStats,
+      recentAnswers,
+      streak: learningStreak
+    };
   }
 
-  private async getProgressMetrics(userId: string) {
-    const progress = await prisma.userProgress.findUnique({
+  private async getRecentAchievements(userId: string): Promise<Achievement[]> {
+    const userAchievements = await prisma.userAchievement.findMany({
       where: { userId },
       include: {
-        completedTopics: true,
-        _count: {
-          select: { completedTopics: true }
-        }
-      }
-    });
-
-    const totalTopics = await prisma.topic.count();
-
-    return {
-      currentLevel: progress?.currentLevel ?? 1,
-      completedTopics: progress?._count.completedTopics ?? 0,
-      totalTopics,
-      masteryPercentage: Math.round(
-        ((progress?._count.completedTopics ?? 0) / totalTopics) * 100
-      )
-    };
-  }
-
-  private async getPerformanceMetrics(userId: string) {
-    const recent = await prisma.questionAnswer.findMany({
-      where: {
-        userId,
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-        }
-      }
-    });
-
-    const streak = await this.calculateStreak(userId);
-
-    return {
-      accuracy: this.calculateAccuracy(recent),
-      averageSpeed: this.calculateAverageSpeed(recent),
-      streak,
-      lastActive: recent[0]?.createdAt ?? new Date()
-    };
-  }
-
-  private async getCurrentTopic(userId: string) {
-    const currentTopic = await prisma.userProgress.findUnique({
-      where: { userId },
-      include: {
-        currentTopic: true,
-        topicProgress: {
-          where: {
-            topicId: { equals: prisma.userProgress.fields.currentTopicId }
-          }
-        }
-      }
-    });
-
-    return {
-      id: currentTopic?.currentTopic?.id ?? '',
-      name: currentTopic?.currentTopic?.name ?? 'Getting Started',
-      progress: currentTopic?.topicProgress[0]?.progress ?? 0,
-      nextMilestone: currentTopic?.topicProgress[0]?.nextMilestone ?? 'Complete first lesson'
-    };
-  }
-
-  private async getAchievements(userId: string) {
-    const achievements = await prisma.achievement.findMany({
-      where: { userId },
-      orderBy: { earnedAt: 'desc' },
+        achievement: true
+      },
+      orderBy: {
+        unlockedAt: 'desc'
+      },
       take: 5
     });
 
-    const total = await prisma.achievement.count({
-      where: { userId }
+    return userAchievements.map(ua => ({
+      id: ua.achievement.id,
+      title: ua.achievement.name,
+      description: ua.achievement.description,
+      icon: 'trophy',
+      type: ua.achievement.type,
+      xpReward: ua.achievement.xpReward,
+      earnedAt: ua.unlockedAt
+    }));
+  }
+
+  private async calculateProgress(userId: string) {
+    const topics = await prisma.topic.count();
+    const completedProgress = await prisma.progress.count({
+      where: {
+        userId,
+        currentLevel: {
+          gte: 100
+        }
+      }
+    });
+
+    const averageProgress = await prisma.progress.aggregate({
+      where: { userId },
+      _avg: {
+        currentLevel: true
+      }
     });
 
     return {
-      recent: achievements,
-      total
+      currentLevel: Math.floor(averageProgress._avg.currentLevel || 0),
+      completedTopics: completedProgress,
+      totalTopics: topics,
+      masteryPercentage: topics > 0 ? (completedProgress / topics) * 100 : 0
     };
   }
 
-  private calculateAccuracy(answers: any[]): number {
-    if (answers.length === 0) return 0;
-    return answers.filter(a => a.correct).length / answers.length;
+  private async getProgressStats(userId: string) {
+    const progress = await prisma.progress.findMany({
+      where: {
+        userId
+      }
+    });
+
+    return {
+      completed: progress.filter(p => p.currentLevel >= 100).length,
+      inProgress: progress.filter(p => p.currentLevel > 0 && p.currentLevel < 100).length,
+      total: progress.length
+    };
   }
 
-  private calculateAverageSpeed(answers: any[]): number {
-    if (answers.length === 0) return 0;
-    return answers.reduce((acc, curr) => acc + curr.timeSpent, 0) / answers.length;
+  private async getRecentAnswers(userId: string) {
+    const answers = await prisma.questionAnswer.findMany({
+      where: {
+        studentId: userId  // Changed from userId to studentId based on your schema
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 5
+    });
+
+    return answers;
   }
 
-  private async calculateStreak(userId: string): Promise<number> {
-    // Implement streak calculation logic
-    return 0;
+  private async getLearningStreak(userId: string) {
+    const progress = await prisma.progress.findMany({
+      where: {
+        userId
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      }
+    });
+
+    // Your streak calculation logic here
+    return {
+      current: 0,
+      longest: 0
+    };
   }
-} 
+
+  private async getWeeklyProgress(userId: string) {
+    const progress = await prisma.progress.findMany({
+      where: {
+        userId
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      }
+    });
+
+    return progress;
+  }
+
+  private async getTotalAchievements(userId: string) {
+    const count = await prisma.userAchievement.count({
+      where: {
+        userId
+      }
+    });
+
+    return count;
+  }
+}

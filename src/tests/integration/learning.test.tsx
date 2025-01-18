@@ -1,141 +1,119 @@
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/extend-expect';
-import PracticeComponent from '@/components/learning/PracticeComponent';
-import TopicLesson from '@/components/learning/TopicLesson';
-import InteractiveDemonstration from '@/components/learning/InteractiveDemonstration';
 import { PracticeService } from '@/services/PracticeService';
-import type { PracticeQuestion, PracticeSession } from '@/services/PracticeService';
+import prisma from '@/lib/db';
 
-// Mock the PracticeService
-jest.mock('@/services/PracticeService', () => {
-  return {
-    PracticeService: {
-      generatePracticeSession: jest.fn()
+// Mock prisma
+jest.mock('@/lib/db', () => ({
+  __esModule: true,
+  default: {
+    assessment: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn()
+    },
+    question: {
+      findMany: jest.fn()
+    },
+    questionAnswer: {
+      createMany: jest.fn()
+    },
+    progress: {
+      upsert: jest.fn()
     }
-  };
-});
-
-const mockTopic = {
-  id: 'basic-math',
-  title: 'Basic Math',
-  explanation: 'Learn basic math concepts',
-  examples: [
-    {
-      id: '1',
-      content: '2 + 2 = 4',
-      solution: 'Adding two numbers'
-    }
-  ],
-  demonstration: 'Here is how to add numbers'
-};
-
-const mockDemonstrationSteps = [
-  {
-    id: '1',
-    content: 'First step',
-    explanation: 'This is how we do it',
-    duration: 5
   }
-];
+}));
 
-describe('Learning Integration Tests', () => {
-  const mockQuestions: PracticeQuestion[] = [
+describe('PracticeService Integration Tests', () => {
+  const mockQuestions = [
     {
       id: '1',
-      content: 'What is 2 + 2?',
-      type: 'multiple-choice',
-      options: ['3', '4', '5', '6'],
+      text: 'What is 2 + 2?',
+      type: 'MULTIPLE_CHOICE',
       correctAnswer: '4',
       difficulty: 1,
-      topicId: 'basic-math'
-    },
-    {
-      id: '2',
-      content: 'Write "hello"',
-      type: 'text',
-      correctAnswer: 'hello',
-      difficulty: 1,
-      topicId: 'basic-english'
+      topic: 'basic-math'
     }
   ];
-
-  const mockSession: PracticeSession = {
-    id: 'session-1',
-    userId: 'user-1',
-    topicId: 'basic-math',
-    questions: mockQuestions,
-    startTime: new Date()
-  };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should render the complete learning flow', async () => {
-    // Mock the service method
-    (PracticeService.generatePracticeSession as jest.Mock).mockResolvedValue(mockSession);
-    
-    const handleComplete = jest.fn();
+  describe('generatePracticeSession', () => {
+    it('should generate a practice session', async () => {
+      const mockAssessment = {
+        id: 'test-id',
+        userId: 'user-1',
+        createdAt: new Date(),
+        questions: mockQuestions
+      };
 
-    render(
-      <>
-        <TopicLesson 
-          topic={mockTopic}
-          onComplete={handleComplete}
-        />
-        <InteractiveDemonstration
-          steps={mockDemonstrationSteps}
-          onComplete={handleComplete}
-        />
-        <PracticeComponent
-          questions={mockQuestions}
-          onComplete={handleComplete}
-        />
-      </>
-    );
+      (prisma.question.findMany as jest.Mock).mockResolvedValueOnce(mockQuestions);
+      (prisma.assessment.create as jest.Mock).mockResolvedValueOnce(mockAssessment);
 
-    await waitFor(() => {
-      expect(screen.getByText('Basic Math')).toBeInTheDocument();
-    });
+      const session = await PracticeService.generatePracticeSession('user-1', 'basic-math', 1);
 
-    const nextButton = screen.getByText(/Continue to Examples/i);
-    fireEvent.click(nextButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Example 1/i)).toBeInTheDocument();
-    });
-
-    for (const question of mockQuestions) {
-      await waitFor(() => {
-        expect(screen.getByText(question.content)).toBeInTheDocument();
+      expect(session).toEqual({
+        id: mockAssessment.id,
+        userId: 'user-1',
+        topicId: 'basic-math',
+        questions: expect.arrayContaining([
+          expect.objectContaining({
+            id: '1',
+            content: 'What is 2 + 2?',
+            type: 'multiple-choice'
+          })
+        ]),
+        startTime: mockAssessment.createdAt
       });
-
-      if (question.type === 'multiple-choice' && question.options) {
-        const answerButton = screen.getByText(question.correctAnswer);
-        fireEvent.click(answerButton);
-      } else {
-        const answerInput = screen.getByRole('textbox');
-        fireEvent.change(answerInput, { target: { value: question.correctAnswer } });
-        fireEvent.keyPress(answerInput, { key: 'Enter', code: 'Enter' });
-      }
-    }
+    });
   });
 
-  it('should handle errors gracefully', async () => {
-    // Mock the service method to reject
-    (PracticeService.generatePracticeSession as jest.Mock).mockRejectedValue(new Error('Failed to fetch'));
-    
-    const handleError = jest.fn();
-    
-    render(
-      <PracticeComponent
-        questions={[]}
-        onComplete={handleError}
-      />
-    );
-    
-    await waitFor(() => {
-      expect(screen.getByText(/error loading questions/i)).toBeInTheDocument();
+  describe('submitPracticeResults', () => {
+    it('should submit and process practice results', async () => {
+      const mockAssessment = {
+        id: 'test-id',
+        userId: 'user-1',
+        questions: mockQuestions
+      };
+
+      (prisma.assessment.findUnique as jest.Mock).mockResolvedValueOnce(mockAssessment);
+      (prisma.assessment.update as jest.Mock).mockResolvedValueOnce({});
+      (prisma.questionAnswer.createMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.progress.upsert as jest.Mock).mockResolvedValueOnce({});
+
+      const results = {
+        answers: [{
+          questionId: '1',
+          answer: '4',
+          timeSpent: 30
+        }],
+        totalTimeSpent: 30
+      };
+
+      await PracticeService.submitPracticeResults('test-id', results);
+
+      expect(prisma.assessment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'test-id' },
+          data: expect.objectContaining({
+            status: 'COMPLETED',
+            score: 1
+          })
+        })
+      );
+    });
+
+    it('should throw error if session not found', async () => {
+      (prisma.assessment.findUnique as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(
+        PracticeService.submitPracticeResults('invalid-id', {
+          answers: [],
+          totalTimeSpent: 0
+        })
+      ).rejects.toThrow('Practice session not found');
     });
   });
 }); 

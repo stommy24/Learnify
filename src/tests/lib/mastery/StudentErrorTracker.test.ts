@@ -1,39 +1,47 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { StudentErrorTracker } from '@/lib/mastery/StudentErrorTracker';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ErrorPattern } from '@prisma/client';
 
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    errorPattern: {
-      create: jest.fn()
-    }
-  }))
-}));
+// Mock Prisma
+const mockCreate = jest.fn() as jest.MockedFunction<(args: { data: any }) => Promise<ErrorPattern>>;
+const mockPrisma = {
+  errorPattern: {
+    create: mockCreate
+  }
+} as unknown as PrismaClient;
 
 describe('StudentErrorTracker', () => {
-  let tracker: StudentErrorTracker;
-  let mockPrisma: jest.Mocked<PrismaClient>;
+  let errorTracker: StudentErrorTracker;
 
   beforeEach(() => {
-    mockPrisma = new PrismaClient() as jest.Mocked<PrismaClient>;
-    tracker = new StudentErrorTracker(mockPrisma);
+    errorTracker = new StudentErrorTracker(mockPrisma);
+    mockCreate.mockClear();
   });
 
   it('should save error patterns to database', async () => {
-    const errorData = {
-      userId: 'user123',
+    const testData = {
+      userId: 'test-user',
       errors: ['error1', 'error2'],
-      timeframe: 'daily' as const
+      timestamp: new Date()
     };
 
-    await tracker.trackErrors(errorData);
+    const mockResponse: ErrorPattern = {
+      id: 'test-id',
+      userId: testData.userId,
+      errorList: testData.errors,
+      timestamp: testData.timestamp,
+      timeframe: 'daily'
+    };
 
-    expect(mockPrisma.errorPattern.create).toHaveBeenCalledWith({
+    mockCreate.mockResolvedValueOnce(mockResponse);
+
+    await errorTracker.trackErrors(testData);
+
+    expect(mockCreate).toHaveBeenCalledWith({
       data: {
-        userId: errorData.userId,
-        errorList: errorData.errors,
-        timeframe: errorData.timeframe,
-        timestamp: expect.any(Date)
+        userId: testData.userId,
+        errorList: testData.errors,
+        timestamp: testData.timestamp
       }
     });
   });
